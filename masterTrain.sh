@@ -26,8 +26,8 @@ Upper_E=10
 Step_Size=5
 # Amount of Events
 Events=10
-# Group Size
-Group_Size=5
+# Batch Size (Recommended <= 500 jobs maximum)
+Batch_Size=5
 #Expand array as needed
 SPAD_Sizes=("4000x4000" "2000x2000")
 
@@ -45,96 +45,97 @@ home_dir=$PWD
 echo "Training neural network with particle ${particle} from ${Lower_E}GeV to \
 ${Upper_E}GeV in steps of ${Step_Size}GeV. ${Events} events per energy."
 
-# Check if Events divisible by 100
-if (( Events % Group_Size == 0 )); then
-    group=$(( Events / Group_Size ))
+# Check if Events divisible by specified batch size
+if (( Events % Batch_Size == 0 )); then
+    group=$(( Events / Batch_Size ))
 else
-    echo "Events not divisible by ${Group_Size}. Code runs in batches of ${Group_Size}. Please adjust"
+    echo "Events not divisible by ${Batch_Size}. Code runs in batches of ${Batch_Size}. Please adjust"
     exit 0
 fi
 
 # Start the files
-./Simulations.sh ${Group_Size}
+./Simulations.sh ${Batch_Size}
 ./trainNN.sh
-./mass_tensorMaker.sh ${Group_Size}
+./mass_tensorMaker.sh ${Batch_Size}
 
 
-# Loop over SPAD Sizes, Energies, and groups of 100
+# Loop over SPAD Sizes, Energies, and Groups (Group = Total Events / Batch Size)
 for s in "${SPAD_Sizes[@]}"; do
 for (( i=${Lower_E}; i<=${Upper_E}; i+=${Step_Size} )); do
 for j in $(seq 1 $group); do
 
+
 # If it's the first event, start the simulations and tensor making right away
 if [[ "$j" == 1 ]]; then
 
-echo "Starting first batch of simulations"
+  echo "Starting first batch of simulations"
 
-for ((n = 0; n < Group_Size; n++)); do
-# Make text file to communicate with Simulation.sh
-cat > start_Simulations_${n}.txt <<EOT
+
+  # Make text files to communicate with Simulation.sh jobs.
+  for ((n = 0; n < Batch_Size; n++)); do
+
+    cat > start_Simulations_${n}.txt <<EOT
 particle=${particle}
 energy=${i}
 group=${j}
 SPAD_Size=${s}
 EOT
 
-mv start_Simulations_${n}.txt ${temp_dir}/
+    mv start_Simulations_${n}.txt ${temp_dir}/
 
-done
+  done
 
-echo "Simulation jobs started"
+  echo "Simulation jobs started"
 
-# Wait for Simulation to finish
-while true; do
-  done_count=$(ls ${temp_dir}/Simulation_check/*.done 2>/dev/null | wc -l)
-  if [ "$done_count" -eq "${Group_Size}" ]; then
-    rm -rf ${temp_dir}/Simulation_check/*.done
-    break
-  fi
-    sleep 1
-done
 
-echo "Simulation jobs finished"
+  # Wait for Simulation to finish
+  while true; do
+    done_count=$(ls ${temp_dir}/Simulation_check/*.done 2>/dev/null | wc -l)
+    if [ "$done_count" -eq "${Batch_Size}" ]; then
+      rm -rf ${temp_dir}/Simulation_check/*.done
+      break
+    fi
+      sleep 1
+  done
 
-echo "Making tensors"
+  echo "Simulation jobs finished"
 
-# Now run code to make tensors
 
-####################### run mass_tensorMaker.sh
-for ((n = 0; n < Group_Size; n++)); do
-# Make text file to communicate with Simulation.sh
-cat > start_tensorMaker_${n}.txt <<EOT
+  echo "Making tensors"
+
+  # Make text files to communicate with mass_tensorMaker.sh jobs
+
+  for ((n = 0; n < Batch_Size; n++)); do
+
+    cat > start_tensorMaker_${n}.txt <<EOT
 particle=${particle}
 energy=${i}
 group=${j}
 SPAD_Size=${s}
 EOT
 
-mv start_tensorMaker_${n}.txt ${temp_dir}/
+    mv start_tensorMaker_${n}.txt ${temp_dir}/
 
-done
-#######################
-# Will output tensor_${j}_${number}_${particle}_${i}.npy
+  done
 
-echo "Tensor jobs started"
+  echo "Tensor jobs started"
 
 
-# Wait for tensor making to finish
-while true; do
-  done_count=$(ls ${temp_dir}/tensorMaker_check/*.done 2>/dev/null | wc -l)
-  if [ "$done_count" -eq "${Group_Size}" ]; then
-    rm -rf ${temp_dir}/tensorMaker_check/*.done
-    break
-  fi
-    sleep 1
-done
+  # Wait for tensor making to finish
+  while true; do
+    done_count=$(ls ${temp_dir}/tensorMaker_check/*.done 2>/dev/null | wc -l)
+    if [ "$done_count" -eq "${Batch_Size}" ]; then
+      rm -rf ${temp_dir}/tensorMaker_check/*.done
+      break
+    fi
+      sleep 1
+  done
 
-echo "Tensor jobs finished"
+  echo "Tensor jobs finished"
 
 
 
 fi
-
 
 
 
@@ -153,14 +154,14 @@ mv start_training.txt ${temp_dir}/
 
 if [[ "$j" == "${group}" ]]; then
 
-while true; do
-  done_count=$(ls ${temp_dir}/NNTraining_check/*.done 2>/dev/null | wc -l)
-  if [ "$done_count" -eq 1 ]; then
-    rm -rf ${temp_dir}/NNTraining_check/*.done
-    break
-  fi
-    sleep 1
-done
+  while true; do
+    done_count=$(ls ${temp_dir}/NNTraining_check/*.done 2>/dev/null | wc -l)
+    if [ "$done_count" -eq 1 ]; then
+      rm -rf ${temp_dir}/NNTraining_check/*.done
+      break
+    fi
+      sleep 1
+  done
 
 
 fi
@@ -170,86 +171,82 @@ fi
 
 if [[ "$j" != "${group}" ]]; then
 
-echo "Starting next simulation batch"
+  echo "Starting next simulation batch"
 
-next_group=$((j + 1))
+  next_group=$((j + 1))
 
-for ((n = 0; n < Group_Size; n++)); do
-# Make text file to communicate with Simulation.sh
-cat > start_Simulations_${n}.txt <<EOT
+  for ((n = 0; n < Batch_Size; n++)); do
+    # Make text file to communicate with Simulation.sh
+    cat > start_Simulations_${n}.txt <<EOT
 particle=${particle}
 energy=${i}
 group=${next_group}
 SPAD_Size=${s}
 EOT
 
-mv start_Simulations_${n}.txt ${temp_dir}/
+    mv start_Simulations_${n}.txt ${temp_dir}/
 
-done
+  done
 
-echo "trainSim.sh started"
+  echo "Simulation batch  started"
 
-while true; do
-  done_count=$(ls ${temp_dir}/Simulation_check/*.done 2>/dev/null | wc -l)
-  if [ "$done_count" -eq "${Group_Size}" ]; then
-    rm -rf ${temp_dir}/Simulation_check/*.done
-    break
-  fi
-    sleep 1
-done
+  while true; do
+    done_count=$(ls ${temp_dir}/Simulation_check/*.done 2>/dev/null | wc -l)
+    if [ "$done_count" -eq "${Batch_Size}" ]; then
+      rm -rf ${temp_dir}/Simulation_check/*.done
+      break
+    fi
+      sleep 1
+  done
 
-echo "Simulation jobs finished"
+  echo "Simulation jobs finished"
 
-while true; do
-  done_count=$(ls ${temp_dir}/NNTraining_check/*.done 2>/dev/null | wc -l)
-  if [ "$done_count" -eq 1 ]; then
-    rm -rf ${temp_dir}/NNTraining_check/*.done
-    break
-  fi
-    sleep 1
-done
+  while true; do
+    done_count=$(ls ${temp_dir}/NNTraining_check/*.done 2>/dev/null | wc -l)
+    if [ "$done_count" -eq 1 ]; then
+      rm -rf ${temp_dir}/NNTraining_check/*.done
+      break
+    fi
+      sleep 1
+  done
 
-echo "Training jobs finished"
+  echo "Training jobs finished"
 
-echo "Making tensors"
+  echo "Making tensors"
 
-# Now run code to make tensors
+  # Now run code to make tensors
 
-####################### run mass_tensorMaker.sh
-for ((n = 0; n < Group_Size; n++)); do
-# Make text file to communicate with Simulation.sh
-cat > start_tensorMaker_${n}.txt <<EOT
+  for ((n = 0; n < Batch_Size; n++)); do
+    # Make text file to communicate with Simulation.sh
+    cat > start_tensorMaker_${n}.txt <<EOT
 particle=${particle}
 energy=${i}
 group=${next_group}
 SPAD_Size=${s}
 EOT
 
-mv start_tensorMaker_${n}.txt ${temp_dir}/
+    mv start_tensorMaker_${n}.txt ${temp_dir}/
 
-done
-#######################
-# Will output tensor_${j}_${number}_${particle}_${i}.npy
+  done
 
-echo "Tensor jobs started"
+  echo "Tensor jobs started"
 
 
-# Wait for tensor making to finish
-while true; do
-  done_count=$(ls ${temp_dir}/tensorMaker_check/*.done 2>/dev/null | wc -l)
-  if [ "$done_count" -eq "${Group_Size}" ]; then
-    rm -rf ${temp_dir}/tensorMaker_check/*.done
-    break
-  fi
-    sleep 1
-done
+  # Wait for tensor making to finish
+  while true; do
+    done_count=$(ls ${temp_dir}/tensorMaker_check/*.done 2>/dev/null | wc -l)
+    if [ "$done_count" -eq "${Batch_Size}" ]; then
+      rm -rf ${temp_dir}/tensorMaker_check/*.done
+      break
+    fi
+      sleep 1
+  done
 
-echo "Tensor jobs finished"
+  echo "Tensor jobs finished"
 
 
 fi
 
-rm -rf ${temp_dir}/NNTraining_check/*.done
 
 echo "Group ${j} in energy ${i} for SPAD size ${s} complete"
 
