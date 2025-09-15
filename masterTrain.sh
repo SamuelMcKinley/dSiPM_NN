@@ -25,13 +25,17 @@ Lower_Energy_Bound=5
 Upper_Energy_Bound=10
 Energy_Step_Size=5
 # Amount of Events
-Events=10
+Events=20
 # Batch Size (Keep Events divisible by Batch Size. Recommended <= 500 jobs maximum)
 Batch_Size=5
 #Expand array as needed
 SPAD_Sizes=("4000x4000" "2000x2000")
 
 
+# Load environment needed for python imports
+echo "Loading environment ..."
+export PATH=~/miniconda3/envs/base/bin:$PATH
+echo "Environment loaded."
 
 temp_dir=/lustre/scratch/$USER/dSiPM_NN
 mkdir -p ${temp_dir}
@@ -249,27 +253,60 @@ EOT
 
 
     # Plot the losses throughout NN epochs
+    echo "Plotting losses"
     cd NNTraining/${s}_model
     python3 -u plot_loss.py NN_model_${s}/loss_history_${i}.txt
     cd ../..
+
+    # Prepare nPhoton vs Energy plots
+    echo "Making csv file for plotting"
+    cd output_${s}
+    python3 -u ../n_vs_e_csv.py summed_tensor_${i}_${s}/summed_tensor.npy ${i}
+    cp summed_tensor_${i}_${s}/summed_tensor.npy summed_tensor_${i}.npy
+    cd ..
+
 
     echo "Energy ${i} for SPAD size ${s} complete"
 
   done
 
+  # Sum all energies of tensors together
   cd output_${s}
+  echo "Summing tensors"
+  python3 -u ../combine_tensors.py . summed_tensor_${s}
+  mv *.npy summed_tensor_${s}/
+  cd ..
 
+  # Plots nPhoton vs Energy
+  echo "Plotting nPhoton vs Energy"
+  cd output_${s}
+  python3 -u ../n_vs_e_plotting.py photon_counts.csv ${s}
+  cd ..
+
+  cd output_${s}/summed_tensor_${s}
   # Creating time-sliced xy projected photon histograms
   echo "Creating histogram for ${s} SPADs"
-  python3 -u ../create_histos.py \
-  summed_tensor_${s}/summed_tensor.npy \
+  python3 -u ../../create_histos.py \
+  summed_tensor.npy \
   ${s}
-
   cd ${home_dir}
+
+
 
   echo "SPAD size ${s} complete"
 
 done
+
+# Moving outputs
+mkdir -p Training_Outputs/
+for s in "${SPAD_Sizes[@]}"; do
+  mv output_${s}/summed_tensor_${s}/nPhotons* Training_Outputs/
+  mv output_${s}/nPhotons* Training_Outputs/
+  rm -rf output_${s}
+  mkdir -p Training_Outputs/Loss_Plots_${s}
+  mv NNTraining/${s}_model/loss_plots/* Training_Outputs/Loss_Plots_${s}/
+done
+
 
 echo "masterTrain.sh finished"
 

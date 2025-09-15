@@ -30,7 +30,7 @@ while squeue -u "$USER" | grep -q "masterT"; do
   if [ ! -f "start_training.txt" ]; then
     sleep 5
   else
-    echo "Fround start_training.txt"
+    echo "Found start_training.txt"
 
     # Copy over variable: 
     . start_training.txt
@@ -50,15 +50,15 @@ while squeue -u "$USER" | grep -q "masterT"; do
     cd ${home_dir}
 
     # Moves the already summed tensor from last iteration, so the other tensors can be summed to it as well
-    if [ -d output_${SPAD_Size}/summed_tensor_${SPAD_Size} ]; then
-      mv output_${SPAD_Size}/summed_tensor_${SPAD_Size}/summed_tensor.npy ${temp_dir}/tensfold/
+    if [ -d output_${SPAD_Size}/summed_tensor_${energy}_${SPAD_Size} ]; then
+      mv output_${SPAD_Size}/summed_tensor_${energy}_${SPAD_Size}/summed_tensor.npy ${temp_dir}/tensfold/
     fi
 
     # Sums tensors. Useful for plots
-    python3 -u combine_tensors.py ${temp_dir}/tensfold summed_tensor_${SPAD_Size} && echo "combined tensors"
+    python3 -u combine_tensors.py ${temp_dir}/tensfold summed_tensor_${energy}_${SPAD_Size} && echo "combined tensors"
 
     mkdir -p output_${SPAD_Size}
-    mv ${temp_dir}/tensfold/summed_tensor_${SPAD_Size} output_${SPAD_Size}/ && echo "moved tensors"
+    mv ${temp_dir}/tensfold/summed_tensor_${energy}_${SPAD_Size} output_${SPAD_Size}/ && echo "moved tensors"
 
     rm -rf ${temp_dir}/tensfold/*
 
