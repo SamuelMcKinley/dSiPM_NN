@@ -5,7 +5,7 @@ import csv
 from pathlib import Path
 
 def main():
-    parser = argparse.ArgumentParser(description="Sum photons in tensor and append to CSV.")
+    parser = argparse.ArgumentParser(description="Sum photons per time slice in tensor and append to CSV.")
     parser.add_argument("tensor_file", help="Path to the .npy tensor file")
     parser.add_argument("energy", type=float, help="Energy value (GeV)")
     parser.add_argument("--csv", default="photon_counts.csv",
@@ -14,10 +14,12 @@ def main():
 
     # Load tensor
     tensor = np.load(args.tensor_file)
-    nPhotons = int(np.sum(tensor))
+    # tensor assumed shape: (time_slices, x, y)
+    if tensor.ndim != 3:
+        raise ValueError(f"Expected 3D tensor (time, x, y), got shape {tensor.shape}")
 
     print(f"Loaded tensor {args.tensor_file} with shape {tensor.shape}")
-    print(f"Total photons: {nPhotons} at energy {args.energy} GeV")
+    totals = [int(np.sum(tensor[t])) for t in range(tensor.shape[0])]
 
     # Append to CSV
     csv_path = Path(args.csv)
@@ -27,12 +29,12 @@ def main():
         writer = csv.writer(f)
         # Write header if new file
         if new_file:
-            writer.writerow(["Energy_GeV", "nPhotons"])
-        writer.writerow([args.energy, nPhotons])
+            writer.writerow(["Energy_GeV", "TimeSlice", "nPhotons"])
+        for t, count in enumerate(totals):
+            writer.writerow([args.energy, t, count])
 
-    print(f"✅ Appended to {args.csv}")
+    print(f"✅ Appended {len(totals)} time slices for energy {args.energy} to {args.csv}")
 
 if __name__ == "__main__":
     main()
-
 
