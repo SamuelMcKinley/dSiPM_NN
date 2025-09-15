@@ -79,8 +79,6 @@ for s in "${SPAD_Sizes[@]}"; do
           cat > start_Simulations_${n}.txt <<EOT
 particle=${particle}
 energy=${i}
-group=${j}
-SPAD_Size=${s}
 EOT
 
           mv start_Simulations_${n}.txt ${temp_dir}/
@@ -141,9 +139,6 @@ EOT
 
       # Make text files to communicate with trainNN.sh and start training
       cat > start_training.txt <<EOT
-particle=${particle}
-energy=${i}
-group=${j}
 SPAD_Size=${s}
 EOT
 
@@ -181,8 +176,6 @@ EOT
           cat > start_Simulations_${n}.txt <<EOT
 particle=${particle}
 energy=${i}
-group=${next_group}
-SPAD_Size=${s}
 EOT
 
           mv start_Simulations_${n}.txt ${temp_dir}/
