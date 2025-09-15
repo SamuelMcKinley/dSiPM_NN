@@ -22,7 +22,7 @@ home_dir=\$PWD
 temp_dir=/lustre/scratch/\$USER/dSiPM_NN
 train_dir=\${home_dir}/NNTraining
 
-# Replace with your environment setup
+# Load environment needed for python imports
 echo "Loading environment ..."
 export PATH=~/miniconda3/envs/base/bin:\$PATH
 echo "Environment loaded."
@@ -30,15 +30,19 @@ echo "Environment loaded."
 cd \${temp_dir}
 
 
-echo "Waiting for text file"
+# Loop as long as the master script is running
 while squeue -u "\$USER" | grep -q "masterT"; do
 
-# Inititalizes start.txt to begin and copies variables from masterTrain.sh
+  # Look for text files used to communicate between masterTrain.sh and trainNN.sh
+  # Script will only run when file is found
   if [ ! -f "start_training.txt" ]; then
     sleep 5
   else
+    echo "Fround start_training.txt"
+
+    # Copy over variable: ${SPAD_Size}
     . start_training.txt
-    echo "Initialized for  particle \$particle, energy \$energy, group \$group, SPAD Size \$SPAD_Size"
+
     cd \${train_dir}
 
     # Creates directory. E.G. 70x70 model
@@ -47,7 +51,7 @@ while squeue -u "\$USER" | grep -q "masterT"; do
     cd \${SPAD_Size}_model
 
 
-    # Train entire group to model
+    # Train entire group to model. Args: <folder with tensors> <energy> --spad <SPAD Size>
     python3 -u train.py \${temp_dir}/tensfold \
     \${energy} --spad \${SPAD_Size}
 
@@ -68,7 +72,11 @@ while squeue -u "\$USER" | grep -q "masterT"; do
     rm -rf \${temp_dir}/tensfold/*
 
     cd \${temp_dir}
+
+    # Remove communication text file
     rm -rf start_training.txt
+
+    # Communicate to masterTrain.sh that the NN training is finished
     touch NNTraining_check/0.done
   fi
 
