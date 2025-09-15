@@ -1,4 +1,4 @@
-jobs/*
+jobs
 output*
-NNTraining/0_model
+NNTraining/*0_model
 Training_Outputs
