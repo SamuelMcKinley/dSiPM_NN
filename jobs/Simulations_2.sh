@@ -8,26 +8,28 @@
 
 cd ..
 home_dir=$PWD
-sim_dir=${home_dir}/DREAMSim/sim/build
+sim_dir=${home_dir}/../DREAMSim/sim/build
 temp_dir=/lustre/scratch/$USER/dSiPM_NN
 
 cd ${temp_dir}
 
+# Loop as long as the master script is running
 echo "Searching for start_Simulations_2.txt"
 while squeue -u "$USER" | grep -q "masterT"; do
 
-  # Inititalizes start.txt to begin and copies variables from masterTrain.sh
+  # Look for text file used to communicate between masterTrain.sh and Simulations.sh
+  # Script will only run when file is found
   if [ ! -f "start_Simulations_2.txt" ]; then
     sleep 5
   else
-    echo "found start_Simulations_2.txt"
+    echo "Found start_Simulations_2.txt"
 
+    # Copy over variables: ${particle}, ${energy}
     . start_Simulations_2.txt
 
-    echo "Initialized for run 2 at particle $particle, energy $energy, group $group, SPAD Size $SPAD_Size"
+    echo "Running simulations inside ${sim_dir}"
 
-    echo "Running simulations inside "
-
+    # Run GEANT4 simulation from directory parallel to dSiPM_NN
     singularity exec --cleanenv --bind /lustre:/lustre /lustre/work/yofeng/SimulationEnv/alma9forgeant4_sbox/       bash -c "source /workspace/geant4-v11.2.2-install/bin/geant4.sh &&         ${sim_dir}/exampleB4b -b ${sim_dir}/paramBatch03_single.mac \
         -jobName Simulation -runNumber 0 -runSeq 2 \
         -numberOfEvents 1 -eventsInNtupe 1 \
@@ -36,6 +38,7 @@ while squeue -u "$USER" | grep -q "masterT"; do
 
     echo "Simulation complete"
 
+    # Remove communication text file
     rm -rf start_Simulations_2.txt
 
     # Communicate to masterTrain that the simulation is finished

@@ -20,7 +20,7 @@ gen_script() {
 
 cd ..
 home_dir=\$PWD
-sim_dir=../DREAMSim/sim/build
+sim_dir=\${home_dir}/../DREAMSim/sim/build
 temp_dir=/lustre/scratch/\$USER/dSiPM_NN
 
 cd \${temp_dir}
@@ -36,10 +36,10 @@ while squeue -u "\$USER" | grep -q "masterT"; do
   else
     echo "Found start_Simulations_${i}.txt"
 
-    # Copy over variables: ${particle}, ${energy}
+    # Copy over variables: \${particle}, \${energy}
     . start_Simulations_${i}.txt
 
-    echo "Running simulations inside ${sim_dir}"
+    echo "Running simulations inside \${sim_dir}"
 
     # Run GEANT4 simulation from directory parallel to dSiPM_NN
     singularity exec --cleanenv --bind /lustre:/lustre /lustre/work/yofeng/SimulationEnv/alma9forgeant4_sbox/ \

@@ -140,6 +140,7 @@ EOT
       # Make text files to communicate with trainNN.sh and start training
       cat > start_training.txt <<EOT
 SPAD_Size=${s}
+energy=${i}
 EOT
 
       mv start_training.txt ${temp_dir}/

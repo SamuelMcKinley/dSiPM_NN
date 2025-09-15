@@ -38,7 +38,7 @@ while squeue -u "\$USER" | grep -q "masterT"; do
   if [ ! -f "start_training.txt" ]; then
     sleep 5
   else
-    echo "Fround start_training.txt"
+    echo "Found start_training.txt"
 
     # Copy over variable: ${SPAD_Size}
     . start_training.txt
