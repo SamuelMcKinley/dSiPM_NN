@@ -41,16 +41,25 @@ while squeue -u "\$USER" | grep -q "masterT"; do
 
     echo "Running simulations inside \${sim_dir}"
 
+    # Generate random seeds
+    seed1=\$(( (RANDOM << 15) + RANDOM ))
+    seed2=\$(( (RANDOM << 15) + RANDOM ))
+
+    # Build a temporary macro with seeds injected
+    echo "/random/setSeeds \$seed1 \$seed2" > random_${i}.mac
+    cat \${sim_dir}/paramBatch03_single.mac >> random_${i}.mac
+
     # Run GEANT4 simulation from directory parallel to dSiPM_NN
     singularity exec --cleanenv --bind /lustre:/lustre /lustre/work/yofeng/SimulationEnv/alma9forgeant4_sbox/ \
       bash -c "source /workspace/geant4-v11.2.2-install/bin/geant4.sh && \
-        \${sim_dir}/exampleB4b -b \${sim_dir}/paramBatch03_single.mac \\
+        \${sim_dir}/exampleB4b -b random_${i}.mac \\
         -jobName Simulation -runNumber 0 -runSeq ${i} \\
         -numberOfEvents 1 -eventsInNtupe 1 \\
         -gun_particle \$particle -gun_energy_min \$energy -gun_energy_max \$energy \\
         -sipmType 1"
 
-    echo "Simulation complete"
+    echo "Simulation complete (seeds: \$seed1, \$seed2)"
+
 
     # Remove communication text file
     rm -rf start_Simulations_${i}.txt
