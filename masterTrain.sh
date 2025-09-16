@@ -23,12 +23,12 @@ gen_script() {
 particle="pi+"
 # Energy in GeV
 Lower_Energy_Bound=5
-Upper_Energy_Bound=10
+Upper_Energy_Bound=50
 Energy_Step_Size=5
 # Amount of Events
-Events=10
+Events=1000
 # Batch Size (Keep Events divisible by Batch Size. Recommended <= 500 jobs maximum)
-Batch_Size=5
+Batch_Size=500
 #Expand array as needed
 SPAD_Sizes=("4000x4000" "2000x2000")
 
@@ -308,6 +308,11 @@ for s in "${SPAD_Sizes[@]}"; do
   rm -rf output_${s}
   mkdir -p Training_Outputs/Loss_Plots_${s}
   mv NNTraining/${s}_model/loss_plots/* Training_Outputs/Loss_Plots_${s}/
+
+  echo "Making NN analysis plots"
+  python3 -u E_pred_plotting.py ${s} NNTraining/${s}_model/NN_model_${s}
+  mv NNTraining/${s}_model/NN_model_${s}/analysis_${s} Training_Outputs/
+
 done
 
 

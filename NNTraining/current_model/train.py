@@ -182,6 +182,7 @@ def main():
         # ------- Validation -------
         model.eval()
         val_loss_sum = 0.0
+        preds_list, targets_list = [], []
         with torch.no_grad():
             with (amp_ctx if use_cuda else nullcontext()):
                 for x, y in val_loader:
@@ -192,11 +193,29 @@ def main():
                         out = out.squeeze(-1)
                     val_loss_sum += criterion(out, y).item()
 
+                    # store a few predictions and targets for logging
+                    preds_list.append(out.detach().cpu())
+                    targets_list.append(y.detach().cpu())
+
         avg_val = val_loss_sum / max(1, len(val_loader))
         print(f"Epoch {epoch:02d}/{start_epoch + total_epochs} | Train {avg_train:.6f} | Val {avg_val:.6f}")
 
-        # 🔸 Log the loss to file
-        loss_log_file.write(f"{epoch},{avg_train:.6f},{avg_val:.6f}\n")
+        # 🔸 convert predictions/targets back to linear GeV if training in log-space
+        if args.target_space == "log":
+            preds_linear = torch.exp(torch.cat(preds_list))
+            targets_linear = torch.exp(torch.cat(targets_list))
+        else:
+            preds_linear = torch.cat(preds_list)
+            targets_linear = torch.cat(targets_list)
+
+        # take mean over validation set for logging
+        mean_pred = preds_linear.mean().item()
+        mean_true = targets_linear.mean().item()
+
+        # 🔸 Log to file: epoch,train_loss,val_loss,mean_pred,mean_true
+        loss_log_file.write(
+            f"{epoch},{avg_train:.6f},{avg_val:.6f},{mean_pred:.6f},{mean_true:.6f}\n"
+        )
         loss_log_file.flush()
 
         # Save "last" every epoch (for resume)
