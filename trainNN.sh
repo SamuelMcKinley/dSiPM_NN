@@ -60,7 +60,7 @@ while squeue -u "\$USER" | grep -q "masterT"; do
 
     # Moves the already summed tensor from last iteration, so the other tensors can be summed to it as well
     if [ -d output_\${SPAD_Size}/summed_tensor_\${energy}_\${SPAD_Size} ]; then
-      mv output_\${SPAD_Size}/summed_tensor_\${energy}_\${SPAD_Size}/summed_tensor.npy \${temp_dir}/tensfold/
+      mv output_\${SPAD_Size}/summed_tensor_\${energy}_\${SPAD_Size}/summed_tensor.npy \${temp_dir}/tensfold/tensor.npy
     fi
 
     # Sums tensors. Useful for plots

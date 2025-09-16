@@ -15,7 +15,7 @@ Lower_Energy_Bound=5
 Upper_Energy_Bound=10
 Energy_Step_Size=5
 # Amount of Events
-Events=20
+Events=10
 # Batch Size (Keep Events divisible by Batch Size. Recommended <= 500 jobs maximum)
 Batch_Size=5
 #Expand array as needed
@@ -287,11 +287,13 @@ EOT
 
 done
 
-# Moving outputs
+
+# Moving and cleaning outputs
 mkdir -p Training_Outputs/
 for s in "${SPAD_Sizes[@]}"; do
   mv output_${s}/summed_tensor_${s}/nPhotons* Training_Outputs/
   mv output_${s}/nPhotons* Training_Outputs/
+  mv output_${s}/summed_tensor_${s}/summed_tensor.npy Training_Outputs/summed_tensor_${s}.npy
   rm -rf output_${s}
   mkdir -p Training_Outputs/Loss_Plots_${s}
   mv NNTraining/${s}_model/loss_plots/* Training_Outputs/Loss_Plots_${s}/
