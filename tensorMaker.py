@@ -112,21 +112,24 @@ def main():
             if nEvents % 5 == 0:
                 print(f"Event {nEvents}: {g.nPhotons()} photons")
 
-            x_vals, y_vals, t_vals, w_vals = [], [], [], []
-            for i, _ in np.ndenumerate(g.pos_final_x):
-                x, y, z, t, w = 10 * g.x(i), 10 * g.y(i), 20 * g.z(i) + 2000, g.t(i), g.w[i]
-                isCFiber = bool(g.isCoreC[i])
-                isGoodPhoton = g.zEnd(i) > 0 and 0.0 < g.t(i) < 40.0
-                if isCFiber and isGoodPhoton:
-                    x_vals.append(x)
-                    y_vals.append(y)
-                    t_vals.append(t)
-                    w_vals.append(w)
+            # --- Photon selection (vectorized) ---
+            x_raw = g.pos_final_x + np.take(xShift, g.productionFiber)
+            y_raw = g.pos_final_y + np.take(yShift, g.productionFiber)
 
-            x_vals = np.array(x_vals)
-            y_vals = np.array(y_vals)
-            t_vals = np.array(t_vals)
-            w_vals = np.array(w_vals)
+            x_shifted = np.vectorize(shrink_toward_center)(x_raw)
+            y_shifted = np.vectorize(shrink_toward_center)(y_raw)
+
+            z_end = g.pos_final_z
+            t_all = g.time_final
+            is_core = g.isCoreC.astype(bool)
+
+            mask = (is_core) & (z_end > 0) & (0.0 < t_all) & (t_all < 40.0)
+
+            x_vals = 10 * x_shifted[mask]
+            y_vals = 10 * y_shifted[mask]
+            t_vals = t_all[mask]
+            w_vals = g.w[mask]
+
 
             hist_tensor = []
             for t_low, t_high in time_slice_ranges:
