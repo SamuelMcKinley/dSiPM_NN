@@ -10,18 +10,20 @@ ROOT.TH1.SetDefaultSumw2()
 ROOT.TH1.AddDirectory(False)
 
 # Position shifts per fiber (to center fiber groups)
-xShift = [3.7308, 3.5768, 3.8008, 3.6468]
-yShift = [-3.7293, -3.6878, -3.6878, -3.6488]
+xShift = np.array([3.7308, 3.5768, 3.8008, 3.6468])  # converted to np.array for efficiency
+yShift = np.array([-3.7293, -3.6878, -3.6878, -3.6488])
 
 # (distance_limit_from_center, shift_amount_toward_center)
 shrink_rules = [(0.1 + 0.4 * i, round(0.23 * i, 2)) for i in range(40)]
+limits = np.array([rule[0] for rule in shrink_rules])
+shift_amounts = np.array([rule[1] for rule in shrink_rules])
 
-def shrink_toward_center(val: float) -> float:
-    abs_val = abs(val)
-    for limit, shift in shrink_rules:
-        if abs_val <= limit:
-            return val - shift * np.sign(val)
-    return val - 2.0 * np.sign(val)
+def shrink_toward_center_array(vals: np.ndarray) -> np.ndarray:
+    """Vectorized version of shrink_toward_center for arrays."""
+    abs_vals = np.abs(vals)
+    idx = np.searchsorted(limits, abs_vals, side="right")
+    idx = np.clip(idx, 0, len(shift_amounts) - 1)
+    return vals - shift_amounts[idx] * np.sign(vals)
 
 class Photons:
     def __init__(self, event):
@@ -34,7 +36,7 @@ class Photons:
         self.pos_final_y = self.getArrayFromEvent(event.OP_pos_final_y)
         self.pos_final_z = self.getArrayFromEvent(event.OP_pos_final_z)
         self.pos_produced_z = self.getArrayFromEvent(event.OP_pos_produced_z)
-        self.w = np.full(self.nPhotons(), 1.0)
+        self.w = np.ones(self.nPhotons(), dtype=np.float32)
 
     def getArrayFromEvent(self, var):
         return np.array(var)[self.array4Sorting]
@@ -44,11 +46,11 @@ class Photons:
 
     def x(self, i):
         raw_x = self.pos_final_x[i] + xShift[self.productionFiber[i]]
-        return shrink_toward_center(raw_x)
+        return shrink_toward_center_array(np.array([raw_x]))[0]
 
     def y(self, i):
         raw_y = self.pos_final_y[i] + yShift[self.productionFiber[i]]
-        return shrink_toward_center(raw_y)
+        return shrink_toward_center_array(np.array([raw_y]))[0]
 
     def z(self, i):
         return self.pos_produced_z[i]
@@ -116,8 +118,8 @@ def main():
             x_raw = g.pos_final_x + np.take(xShift, g.productionFiber)
             y_raw = g.pos_final_y + np.take(yShift, g.productionFiber)
 
-            x_shifted = np.vectorize(shrink_toward_center)(x_raw)
-            y_shifted = np.vectorize(shrink_toward_center)(y_raw)
+            x_shifted = shrink_toward_center_array(x_raw)
+            y_shifted = shrink_toward_center_array(y_raw)
 
             z_end = g.pos_final_z
             t_all = g.time_final
@@ -129,7 +131,6 @@ def main():
             y_vals = 10 * y_shifted[mask]
             t_vals = t_all[mask]
             w_vals = g.w[mask]
-
 
             hist_tensor = []
             for t_low, t_high in time_slice_ranges:
@@ -150,3 +151,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
