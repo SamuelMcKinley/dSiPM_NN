@@ -18,7 +18,7 @@ gen_script() {
 #SBATCH -e LOGDIR/%x.%j.err
 #SBATCH -p nocona
 #SBATCH -c 1
-#SBATCH --mem-per-cpu=8G
+#SBATCH --mem-per-cpu=16G
 
 # Load environment needed for python imports
 echo "Loading environment ..."

@@ -20,17 +20,17 @@ gen_script() {
 #SBATCH --mem-per-cpu=16G
 
 ################ Edit Parameters here: ################
-particle="pi+"
+particle="$6"
 # Energy in GeV
-Lower_Energy_Bound=5
-Upper_Energy_Bound=50
-Energy_Step_Size=5
+Lower_Energy_Bound=$1
+Upper_Energy_Bound=$2
+Energy_Step_Size=$3
 # Amount of Events
-Events=1000
+Events=$4
 # Batch Size (Keep Events divisible by Batch Size. Recommended <= 500 jobs maximum)
-Batch_Size=500
+Batch_Size=$5
 #Expand array as needed
-SPAD_Sizes=("4000x4000" "2000x2000")
+SPAD_Sizes=("${@:7}")
 
 
 # Load environment needed for python imports

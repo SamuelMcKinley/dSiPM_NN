@@ -3,6 +3,9 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <fstream>
+#include <string>
+#include <sstream>
 
 // Check if SPAD Size is legitimate
 bool SPAD_Check(std::string s_check){
@@ -108,7 +111,45 @@ int main(){
     for (auto &s : spad_sizes) std::cout << s << " ";
     std::cout << "\n";
 
+
+    // Check if user wants to run clear_files.sh
+    std::cout << "\nDo you want to clear files of previous jobs? Y/N\n?";
+    char answer;
+    std::cin >> answer;
+    while (true){
+        if (answer == 'Y' || answer == 'y'){
+            std::system("./clear_files.sh");
+            std::cout << "Successfully cleared files\n";
+            break;
+        } else if (answer == 'N' || answer == 'n'){
+            break;
+        } else{
+            std::cout << "Answer not recognized. Provide Y or N\n";
+            std::cin >> answer;
+        }
+    }
+
+    std::ostringstream cmd;
+    cmd << "./masterTrain.sh "
+        << E_min << " "
+        << E_max << " "
+        << step << " "
+        << total_events << " "
+        << group_size << " "
+        << particle;
+
+    for (const auto& spad : spad_sizes){
+        cmd << " " << spad;
+    }
+
+    int ret = std::system(cmd.str().c_str());
+    if (ret != 0){
+        std::cerr << "Error: masterTrain.sh failed with code " << ret << "\n";
+    }
+
+
     std::cout << "\n\nmasterTrain.sh edited and started\n";
     return 0;
+
 
 }
