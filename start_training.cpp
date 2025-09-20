@@ -112,6 +112,20 @@ int main(){
     std::cout << "\n";
 
 
+    std::cout << "Do you want to proceed? Y/N?";
+
+    char proceed_check;
+    std::cin >> proceed_check;
+        if (proceed_check == 'Y' || proceed_check == 'y'){
+            std::cout << "Proceeding\n";
+        } else if (proceed_check == 'N' || proceed_check == 'n'){
+            std::cout << "Breaking\n";
+            return 1;
+        } else {
+            std::cout << "Answer not recognized. Provide Y or N\n";
+        }
+
+
     // Check if user wants to run clear_files.sh
     std::cout << "\nDo you want to clear files of previous jobs? Y/N\n?";
     char answer;

@@ -19,7 +19,7 @@ gen_script() {
 #SBATCH -c 2
 #SBATCH --mem-per-cpu=16G
 
-################ Edit Parameters here: ################
+# Parameters (Set by start_training)
 particle="$6"
 # Energy in GeV
 Lower_Energy_Bound=$1

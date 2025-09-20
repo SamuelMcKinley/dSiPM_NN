@@ -41,11 +41,11 @@ while squeue -u "\$USER" | grep -q "masterT"; do
 
     echo "Running simulations inside \${sim_dir}"
 
-    # Generate random seeds
+    # Generate seeds
     seed1=\$(( (RANDOM << 15) + RANDOM ))
     seed2=\$(( (RANDOM << 15) + RANDOM ))
 
-    # Build a temporary macro with seeds injected
+    # Build temporary macro for seeds
     echo "/random/setSeeds \$seed1 \$seed2" > random_${i}.mac
     cat \${sim_dir}/paramBatch03_single.mac >> random_${i}.mac
 
