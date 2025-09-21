@@ -81,6 +81,10 @@ def plot_incremental(epochs, train_losses, val_losses, energy, outdir: Path, int
         plt.plot(x, sub_train, 'b-', linewidth=2, label="Train Loss", alpha=0.8)
         plt.plot(x, sub_val, 'r-', linewidth=2, label="Validation Loss", alpha=0.8)
 
+        # Add vertical red lines every 50 epochs
+        for vline_epoch in range(50, end_epoch + 1, 50):
+            plt.axvline(x=vline_epoch, color='red', linestyle='--', linewidth=1, alpha=0.7)
+
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.title(f"Training Loss History (Epochs 1-{end_epoch}) | Energy = {energy} GeV")
