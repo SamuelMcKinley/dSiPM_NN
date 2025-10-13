@@ -21,7 +21,7 @@ bool SPAD_Check(std::string s_check) {
 }
 
 int main() {
-    double E_min, E_max, step;
+    int E_min, E_max, step;
     int total_events, group_size;
     std::string particle;
     int n_spads;
@@ -36,16 +36,19 @@ int main() {
     std::cin >> step;
 
     // Check if Step Size is valid
-    double E_difference = E_max - E_min;
+    int E_difference = E_max - E_min;
     if (std::fmod(E_difference, step) != 0) {
         std::cout << "Step Size not compatible with energy range. Exiting...\n";
         return 1;
     }
 
-    std::cout << "Enter Total Number of Events: ";
+    int lenE = E_difference * step;
+
+    std::cout << "Enter Number of Events per Energy: ";
     std::cin >> total_events;
 
-    std::cout << "Enter Group Size (must divide " << total_events << " with no remainder). Recommended <=500 jobs maximum: ";
+    std::cout << "Enter Group Size (must divide " << total_events << " with no remainder and be divisible by " << lenE << " ).\n"
+    <<  "Recommended 500 jobs maximum: ";
     std::cin >> group_size;
 
     // Check if Group Size is valid
