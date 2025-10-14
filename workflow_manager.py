@@ -59,7 +59,7 @@ def wait_for_simulation(group_size):
 
 def start_tensorMaking(particle, energy, group, spad_size, count):
   # Create file with variables to initialize in bash script
-  tens_filename = f"start_tensorMaking_{count}.txt"
+  tens_filename = f"start_tensorMaker_{count}.txt"
   with open(tens_filename, "w") as f:
     f.write(f"particle={particle}\n")
     f.write(f"energy={energy}\n")
@@ -81,6 +81,32 @@ def wait_for_tensorMaking(group_size):
       for f in t_done_files:
         os.remove(f)
       print("Tensor making jobs finished")
+      break
+    time.sleep(0.5)
+
+def start_NNTraining(spad_size, energy):
+  # Create file with variables to initialize in bash script
+  NN_filename = f"start_training.txt"
+  with open(NN_filename, "w") as f:
+    f.write(f"SPAD_Size={spad_size}\n")
+    f.write(f"energy={energy}\n")
+  shutil.move(NN_filename, f"{temp_dir}/NNTraining_check/")
+
+def wait_for_NNTraining(group_size):
+  NN_check_dir = os.path.join(temp_dir, "NNTraining_check")
+
+  print("Waiting for tensor making jobs to finish ...")
+
+  while True:
+    # Check for all .done communication files
+    n_done_files = glob.glob(os.path.join(NN_check_dir, "*.done"))
+    n_done_count = len(n_done_files)
+
+    # Built in logic in case want to expand to parallel training. Can change 1 to group_size
+    if n_done_count == 1:
+      for f in n_done_files:
+        os.remove(f)
+      print("NN training job finished")
       break
     time.sleep(0.5)
 
@@ -128,19 +154,24 @@ def main():
       #Shuffles energies for better NN results
       np.random.shuffle(expanded_energies)
       
-      # Count useful to avoid overwriting
+      # Loop GEANT4 Simulations
       count = -1
       for energy in expanded_energies:
         count += 1
         start_simulations(particle, energy, count)
       wait_for_simulation(group_size)
+
+      # Loop tensor making
       count = -1
       for energy in expanded_energies:
         count += 1
         start_tensorMaking(particle, energy, group, spad_size, count)
       wait_for_tensorMaking(group_size)
+      count = -1
 
-
+      # Run Cummulative NN training
+      start_NNTraining(spad_size, energy)
+      wait_for_NNTraining(group_size)
 
 
 if __name__ == "__main__":
