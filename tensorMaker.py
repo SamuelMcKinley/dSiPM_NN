@@ -4,6 +4,9 @@ import numpy as np
 import ROOT
 import csv
 
+# Deadtime Boolean
+Deadtime = False
+
 # ROOT settings
 ROOT.gROOT.SetBatch(True)
 ROOT.TH1.SetDefaultSumw2()
@@ -114,7 +117,7 @@ def main():
             if nEvents % 5 == 0:
                 print(f"Event {nEvents}: {g.nPhotons()} photons")
 
-            # --- Photon selection (vectorized) ---
+            # Photon selection (vectorized)
             x_raw = g.pos_final_x + np.take(xShift, g.productionFiber)
             y_raw = g.pos_final_y + np.take(yShift, g.productionFiber)
 
@@ -131,6 +134,31 @@ def main():
             y_vals = 10 * y_shifted[mask]
             t_vals = t_all[mask]
             w_vals = g.w[mask]
+
+            if Deadtime:
+                # Map photon coordinates (mm) to discrete SPAD bin indices
+                ix = ((x_vals + 80.0) / (160.0 / sipm.nBins)).astype(int)
+                iy = ((y_vals + 80.0) / (160.0 / sipm.nBins)).astype(int)
+                ix = np.clip(ix, 0, sipm.nBins - 1)
+                iy = np.clip(iy, 0, sipm.nBins - 1)
+ 
+                # Track active/dead SPADs
+                active = np.ones((sipm.nBins, sipm.nBins), dtype=bool)
+                accepted = np.zeros_like(t_vals, dtype=bool)
+
+                for i in range(len(t_vals)):
+                    x_i, y_i = ix[i], iy[i]
+                    # Ensure indices are inside array bounds
+                    if 0 <= x_i < sipm.nBins and 0 <= y_i < sipm.nBins:
+                        if active[y_i, x_i]:
+                            accepted[i] = True
+                            active[y_i, x_i] = False  # deactivate this SPAD for the rest of the event
+
+                # Keep only photons from still-active SPADs
+                x_vals = x_vals[accepted]
+                y_vals = y_vals[accepted]
+                t_vals = t_vals[accepted]
+                w_vals = w_vals[accepted]
 
             hist_tensor = []
             for t_low, t_high in time_slice_ranges:
