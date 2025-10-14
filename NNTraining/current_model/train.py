@@ -17,20 +17,21 @@ from model import EnergyRegressionCNN
 def parse_args():
     p = argparse.ArgumentParser(description="Incremental training for EnergyRegressionCNN on photon tensors.")
     p.add_argument("tensor_path", help="Path to a single .npy OR a directory containing .npy files")
-    p.add_argument("energy", type=float, help="True energy in GeV for these tensors")
+    p.add_argument("--energy", type=float,
+                   help="True energy in GeV for these tensors (optional if filenames encode energies)")
     p.add_argument("--spad", required=True, help='SPAD size label (e.g., "50x50", "70x70", "4000x4000")')
     p.add_argument("--epochs", type=int, default=50)
     p.add_argument("--bs", type=int, default=32, help="Batch size")
     p.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     p.add_argument("--target-space", choices=["linear", "log"], default="log",
                    help="Train to predict energy (linear) or log(energy) (log)")
-    p.add_argument("--workers", type=int, default=8, help="DataLoader workers (CPU cores to use for loading)")
+    p.add_argument("--workers", type=int, default=8, help="Number of DataLoader workers")
     p.add_argument("--cpu-threads", type=int, default=0, help="torch.set_num_threads; 0 = leave default")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--outdir", default="NN_model_{spad}",
                    help='Output directory (supports {spad} and {energy}). Default: "NN_model_{spad}"')
-    p.add_argument("--val-split", type=float, default=0.2, help="Validation fraction when >1 samples are present")
-    p.add_argument("--save-ts", action="store_true", help="Also save a TorchScript predictor for easy reload")
+    p.add_argument("--val-split", type=float, default=0.2, help="Validation fraction (when >1 samples)")
+    p.add_argument("--save-ts", action="store_true", help="Also save a TorchScript predictor")
     return p.parse_args()
 
 
@@ -88,12 +89,19 @@ def main():
     # ------- Dataset / Split -------
     dataset = PhotonEnergyDataset(
         tensor_path=args.tensor_path,
-        energy=args.energy,
+        energy=args.energy,  # may be None for mixed-energy folders
         target_space=args.target_space,
         mmap=True,
     )
 
-    print(f"🧠 Loaded dataset with {len(dataset)} samples from {args.tensor_path}")
+    energies_in_data = dataset.get_all_energies()
+    if len(set(energies_in_data)) > 1:
+        print(f"🧠 Loaded mixed-energy dataset with {len(dataset)} samples:")
+        print(f"   Energies found: {sorted(set(energies_in_data))}")
+    else:
+        print(f"🧠 Loaded dataset with {len(dataset)} samples at {energies_in_data[0]} GeV")
+
+    # ------- Train/Val split -------
     if len(dataset) <= 1 or args.val_split <= 0:
         train_set = dataset
         val_set = dataset
@@ -131,13 +139,17 @@ def main():
     )
 
     # ------- Model / Loss / Optim -------
-    # Initialize with correct input channels *before* any checkpoint load.
     model = EnergyRegressionCNN(in_channels=dataset.channels).to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-    # ------- Outdir / Auto-resume -------
+    # ------- Outdir / Logging setup -------
     outdir = prepare_outdir(args)
+    loss_log_path = (
+        outdir / f"loss_history_{int(args.energy)}.txt"
+        if args.energy is not None
+        else outdir / "loss_history_mixed.txt"
+    )
     last_ckpt = outdir / "last.ckpt"
     best_ckpt = outdir / "best.ckpt"
     best_state = outdir / "best.pth"
@@ -145,11 +157,8 @@ def main():
 
     start_epoch, best_val = maybe_load_checkpoint(model, optimizer, last_ckpt)
 
-    # ------- Training -------
+    # ------- Training loop -------
     total_epochs = args.epochs
-
-    # Open loss log file before loop
-    loss_log_path = outdir / f"loss_history_{int(args.energy)}.txt"
     loss_log_file = open(loss_log_path, "a")
 
     for epoch in range(start_epoch + 1, start_epoch + total_epochs + 1):
@@ -183,24 +192,21 @@ def main():
         model.eval()
         val_loss_sum = 0.0
         preds_list, targets_list = [], []
-        with torch.no_grad():
-            with (amp_ctx if use_cuda else nullcontext()):
-                for x, y in val_loader:
-                    x = x.to(device, non_blocking=use_cuda)
-                    y = y.to(device, non_blocking=use_cuda)
-                    out = model(x)
-                    if out.ndim > 1 and out.size(-1) == 1:
-                        out = out.squeeze(-1)
-                    val_loss_sum += criterion(out, y).item()
-
-                    # store a few predictions and targets for logging
-                    preds_list.append(out.detach().cpu())
-                    targets_list.append(y.detach().cpu())
+        with torch.no_grad(), (amp_ctx if use_cuda else nullcontext()):
+            for x, y in val_loader:
+                x = x.to(device, non_blocking=use_cuda)
+                y = y.to(device, non_blocking=use_cuda)
+                out = model(x)
+                if out.ndim > 1 and out.size(-1) == 1:
+                    out = out.squeeze(-1)
+                val_loss_sum += criterion(out, y).item()
+                preds_list.append(out.detach().cpu())
+                targets_list.append(y.detach().cpu())
 
         avg_val = val_loss_sum / max(1, len(val_loader))
         print(f"Epoch {epoch:02d}/{start_epoch + total_epochs} | Train {avg_train:.6f} | Val {avg_val:.6f}")
 
-        # 🔸 convert predictions/targets back to linear GeV if training in log-space
+        # ------- Log metrics -------
         if args.target_space == "log":
             preds_linear = torch.exp(torch.cat(preds_list))
             targets_linear = torch.exp(torch.cat(targets_list))
@@ -208,20 +214,16 @@ def main():
             preds_linear = torch.cat(preds_list)
             targets_linear = torch.cat(targets_list)
 
-        # take mean over validation set for logging
         mean_pred = preds_linear.mean().item()
         mean_true = targets_linear.mean().item()
 
-        # 🔸 Log to file: epoch,train_loss,val_loss,mean_pred,mean_true
-        loss_log_file.write(
-            f"{epoch},{avg_train:.6f},{avg_val:.6f},{mean_pred:.6f},{mean_true:.6f}\n"
-        )
+        loss_log_file.write(f"{epoch},{avg_train:.6f},{avg_val:.6f},{mean_pred:.6f},{mean_true:.6f}\n")
         loss_log_file.flush()
 
-        # Save "last" every epoch (for resume)
+        # ------- Checkpointing -------
         meta = {
             "target_space": args.target_space,
-            "energy_GeV": args.energy,
+            "energy_GeV": float(args.energy) if args.energy is not None else "mixed",
             "spad_size": args.spad,
             "best_val_loss": float(best_val),
             "batch_size": args.bs,
@@ -235,20 +237,15 @@ def main():
         }
         save_checkpoint(last_ckpt, model, optimizer, epoch, best_val, meta)
 
-        # Track & save best
         if avg_val < best_val:
             best_val = avg_val
             torch.save(model.state_dict(), best_state)
             save_checkpoint(best_ckpt, model, optimizer, epoch, best_val, meta)
-            print(f"💾 New best (val={best_val:.6f}) saved to: {best_ckpt} and {best_state}")
+            print(f"💾 New best (val={best_val:.6f}) saved to {best_ckpt} and {best_state}")
 
-    # 🔸 Close loss log after training
     loss_log_file.close()
 
-
-
-
-    # ------- Save final artifacts -------
+    # ------- Export TorchScript (optional) -------
     if args.save_ts:
         model.eval()
         C, H, W = dataset.channels, dataset.height, dataset.width
@@ -258,10 +255,10 @@ def main():
         scripted.save(str(ts_path))
         print(f"🧠 TorchScript predictor saved to {ts_path}")
 
-    # Save/update meta
+    # ------- Save metadata -------
     meta["best_val_loss"] = float(best_val)
-    meta["best_ckpt"] = str(best_ckpt)                 # full training checkpoint (.ckpt)
-    meta["best_state_dict"] = str(best_state)          # weights only (.pth)
+    meta["best_ckpt"] = str(best_ckpt)
+    meta["best_state_dict"] = str(best_state)
     meta["last_ckpt"] = str(last_ckpt)
     with open(meta_path, "w") as f:
         json.dump(meta, f, indent=2)
@@ -270,4 +267,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
