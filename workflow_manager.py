@@ -110,6 +110,17 @@ def wait_for_NNTraining(group_size):
       break
     time.sleep(0.5)
 
+# Analysis A runs every group
+def Analysis_A():
+    wait_for_NNTraining(group_size)
+
+# Analysis B runs once per SPAD Size / model
+def Analysis_B(spad_size):
+  os.makedirs("Training_Outputs/")
+  print("Making NN analysis plots")
+  subprocess.run(["python3", "-u", "E_pred_plotting.py", str(spad_size), f"NNTraining/{spad_size}_model/NN_model_{spad_size}"], check=True)
+
+    
 
 
 def main():
@@ -155,11 +166,17 @@ def main():
       np.random.shuffle(expanded_energies)
       
       # Loop GEANT4 Simulations
+
       count = -1
       for energy in expanded_energies:
         count += 1
         start_simulations(particle, energy, count)
       wait_for_simulation(group_size)
+
+      # Function checks for NN training from previous iteration to be complete
+      # Allows NN training overlap with GEANT 4 Sim
+      if group != 0:
+        Analysis_A()
 
       # Loop tensor making
       count = -1
@@ -167,11 +184,15 @@ def main():
         count += 1
         start_tensorMaking(particle, energy, group, spad_size, count)
       wait_for_tensorMaking(group_size)
-      count = -1
 
       # Run Cummulative NN training
       start_NNTraining(spad_size, energy)
-      wait_for_NNTraining(group_size)
+
+      # Run Analysis
+      if group == (groups - 1):
+        Analysis_A()
+
+  Analysis_B(spad_size)
 
 
 if __name__ == "__main__":

@@ -56,7 +56,7 @@ while squeue -u "\$USER" | grep -q "masterT"; do
     mv tensor_\${group}_${i}_\${particle}_\${energy}/npy/* tensfold/tensor_${i}_\${particle}_\${energy}_\${group}_\${SPAD_Size}.npy
     rm -rf tensor_\${group}_${i}_\${particle}_\${energy}
 
-    echo "DONE"
+    echo "Tensor making complete for particle \${particle}, \${energy} GeV, group \${group}, SPAD_Size \${SPAD_Size}."
 
     # Remove communication text file
     rm -rf start_tensorMaker_${i}.txt

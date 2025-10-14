@@ -32,7 +32,7 @@ while squeue -u "\$USER" | grep -q "masterT"; do
   # Look for text file used to communicate between masterTrain.sh and Simulations.sh
   # Script will only run when file is found
   if [ ! -f "start_Simulations_${i}.txt" ]; then
-    sleep 5
+    sleep 1
   else
     echo "Found start_Simulations_${i}.txt"
 
