@@ -1,0 +1,16 @@
+./Simulations.sh: line 3: cd: jobs: No such file or directory
+Traceback (most recent call last):
+  File "/lustre/work/samumcki/dSiPM_NN/workflow_manager.py", line 199, in <module>
+    main()
+  File "/lustre/work/samumcki/dSiPM_NN/workflow_manager.py", line 154, in main
+    initialize_scripts(group_size)
+  File "/lustre/work/samumcki/dSiPM_NN/workflow_manager.py", line 32, in initialize_scripts
+    subprocess.run(["./trainNN.sh"], check=True)
+  File "/home/samumcki/miniconda3/lib/python3.12/subprocess.py", line 550, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/samumcki/miniconda3/lib/python3.12/subprocess.py", line 1028, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/home/samumcki/miniconda3/lib/python3.12/subprocess.py", line 1963, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+PermissionError: [Errno 13] Permission denied: './trainNN.sh'

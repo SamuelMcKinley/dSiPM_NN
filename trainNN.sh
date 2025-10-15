@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd jobs
+cd batch_jobs
 
 gen_script() {
     local script_name="NN_training.sh"

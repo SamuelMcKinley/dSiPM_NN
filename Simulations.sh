@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd jobs
+cd batch_jobs
 Group_Size=$1
 
 # Make the amount of scripts as there are groups

@@ -42,18 +42,23 @@ int main() {
         return 1;
     }
 
-    int lenE = E_difference * step;
+    int lenE = E_difference / step + 1;
 
-    std::cout << "Enter Number of Events per Energy: ";
+    std::cout << "Enter Number of Events per Energy:";
     std::cin >> total_events;
 
-    std::cout << "Enter Group Size (must divide " << total_events << " with no remainder and be divisible by " << lenE << " ).\n"
-    <<  "Recommended 500 jobs maximum: ";
+    int All_Events = total_events * lenE;
+
+    std::cout << "Enter Group Size (must divide " << All_Events << " with no remainder, and be a multiple of " << lenE << " ). "
+    <<  "\nRecommended 500 jobs maximum: ";
     std::cin >> group_size;
 
     // Check if Group Size is valid
-    if (std::fmod(total_events, group_size) != 0) {
-        std::cout << "Total Events not divisible by Group Size. Exiting...\n";
+    if (std::fmod(All_Events, group_size) != 0) {
+        std::cout << "Events per energy times amount of energies not divisible by Group Size. Exiting...\n";
+        return 1;
+    } else if (std::fmod(group_size, lenE) != 0){
+        std::cout << "Group size not divisible by amount of energies. Exiting...\n";
         return 1;
     }
 

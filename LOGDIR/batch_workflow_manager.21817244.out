@@ -1,0 +1,27 @@
+Submitted batch job 21817245
+trainSim script 0 initialized
+Submitted batch job 21817246
+trainSim script 1 initialized
+Submitted batch job 21817247
+trainSim script 2 initialized
+Submitted batch job 21817248
+trainSim script 3 initialized
+Submitted batch job 21817249
+trainSim script 4 initialized
+Submitted batch job 21817250
+trainSim script 5 initialized
+Submitted batch job 21817251
+trainSim script 6 initialized
+Submitted batch job 21817252
+trainSim script 7 initialized
+Submitted batch job 21817253
+trainSim script 8 initialized
+Submitted batch job 21817254
+trainSim script 9 initialized
+
+--- Workflow Parameters ---
+Energy: 5 → 10 step 5 GeV
+Total events: 10 (group size 10)
+Particle: pi+
+SPAD sizes: ['4000x4000', '2000x2000']
+
