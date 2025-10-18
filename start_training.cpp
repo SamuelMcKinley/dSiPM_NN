@@ -108,9 +108,9 @@ int main() {
 
     // Print summary
     std::cout << "\n--- Simulation Parameters ---\n";
-    std::cout << "Energy: " << E_min << " → " << E_max
+    std::cout << "Energy: " << E_min << " => " << E_max
               << " step " << step << " GeV\n";
-    std::cout << "Total events: " << total_events
+    std::cout << "Events per energy: " << total_events
               << " (group size " << group_size << ")\n";
     std::cout << "Particle: " << particle << "\n";
     std::cout << "SPAD sizes: ";

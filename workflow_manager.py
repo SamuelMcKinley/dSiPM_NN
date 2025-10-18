@@ -33,12 +33,13 @@ def initialize_scripts(group_size):
   subprocess.run(["./mass_tensorMaker.sh", str(group_size)], check=True)
 
 def start_simulations(particle, energy, count):
+  print("Starting simulations")
   # Create file with variables to initialize in bash script
   sim_filename = f"start_Simulations_{count}.txt"
   with open(sim_filename, "w") as f:
     f.write(f"particle={particle}\n")
     f.write(f"energy={energy}\n")
-  shutil.move(sim_filename, f"{temp_dir}/Simulation_check/")
+  shutil.move(sim_filename, f"{temp_dir}/")
 
 def wait_for_simulation(group_size):
   sim_check_dir = os.path.join(temp_dir, "Simulation_check")
@@ -58,6 +59,7 @@ def wait_for_simulation(group_size):
     time.sleep(0.5)
 
 def start_tensorMaking(particle, energy, group, spad_size, count):
+  print("Starting tensor making")
   # Create file with variables to initialize in bash script
   tens_filename = f"start_tensorMaker_{count}.txt"
   with open(tens_filename, "w") as f:
@@ -65,7 +67,7 @@ def start_tensorMaking(particle, energy, group, spad_size, count):
     f.write(f"energy={energy}\n")
     f.write(f"group={group}\n")
     f.write(f"SPAD_Size={spad_size}\n")
-  shutil.move(tens_filename, f"{temp_dir}/tensorMaking_check/")
+  shutil.move(tens_filename, f"{temp_dir}/")
 
 def wait_for_tensorMaking(group_size):
   tens_check_dir = os.path.join(temp_dir, "tensorMaking_check")
@@ -85,17 +87,18 @@ def wait_for_tensorMaking(group_size):
     time.sleep(0.5)
 
 def start_NNTraining(spad_size, energy):
+  print("Starting NN training")
   # Create file with variables to initialize in bash script
   NN_filename = f"start_training.txt"
   with open(NN_filename, "w") as f:
     f.write(f"SPAD_Size={spad_size}\n")
     f.write(f"energy={energy}\n")
-  shutil.move(NN_filename, f"{temp_dir}/NNTraining_check/")
+  shutil.move(NN_filename, f"{temp_dir}/")
 
 def wait_for_NNTraining(group_size):
   NN_check_dir = os.path.join(temp_dir, "NNTraining_check")
 
-  print("Waiting for tensor making jobs to finish ...")
+  print("Waiting for NN training jobs to finish ...")
 
   while True:
     # Check for all .done communication files
@@ -111,17 +114,17 @@ def wait_for_NNTraining(group_size):
     time.sleep(0.5)
 
 # Analysis A runs every group
-def Analysis_A():
+def Analysis_A(group_size):
     wait_for_NNTraining(group_size)
 
 # Analysis B runs once per SPAD Size / model
 def Analysis_B(spad_size):
+  if os.path.exists("Training_Outputs"):
+    shutil.rmtree("Training_Outputs")
   os.makedirs("Training_Outputs/")
   print("Making NN analysis plots")
   subprocess.run(["python3", "-u", "E_pred_plotting.py", str(spad_size), f"NNTraining/{spad_size}_model/NN_model_{spad_size}"], check=True)
-
-    
-
+  shutil.move(f"NNTraining/{spad_size}_model/NN_model_{spad_size}/analysis_{spad_size}", f"{Training_Outputs}/")
 
 def main():
 
@@ -140,7 +143,7 @@ def main():
   spad_sizes   = config["spad_sizes"]
 
   print("\n--- Workflow Parameters ---")
-  print(f"Energy: {energy_min} → {energy_max} step {energy_step} GeV")
+  print(f"Energy: {energy_min} => {energy_max} step {energy_step} GeV")
   print(f"Total events: {Events_per_energy} (group size {group_size})")
   print(f"Particle: {particle}")
   print(f"SPAD sizes: {spad_sizes}\n")
@@ -149,7 +152,8 @@ def main():
 
   check_event_count(Events_per_energy, group_size)
 
-  groups = Events_per_energy // group_size
+  groups = (Events_per_energy * len(energies)) // group_size
+  print(f"{groups} groups total.")
 
   initialize_scripts(group_size)
 
@@ -176,7 +180,7 @@ def main():
       # Function checks for NN training from previous iteration to be complete
       # Allows NN training overlap with GEANT 4 Sim
       if group != 0:
-        Analysis_A()
+        Analysis_A(group_size)
 
       # Loop tensor making
       count = -1
@@ -190,9 +194,9 @@ def main():
 
       # Run Analysis
       if group == (groups - 1):
-        Analysis_A()
+        Analysis_A(group_size)
 
-  Analysis_B(spad_size)
+    Analysis_B(spad_size)
 
 
 if __name__ == "__main__":

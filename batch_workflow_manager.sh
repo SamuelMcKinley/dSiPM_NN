@@ -10,4 +10,4 @@
 
 export PATH=~/miniconda3/envs/base/bin:$PATH
 
-python3 workflow_manager.py "$1"
+python3 -u workflow_manager.py "$1"

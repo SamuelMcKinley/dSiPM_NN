@@ -1,0 +1,149 @@
+Loading environment ...
+Environment loaded.
+Found start_training.txt
+🧠 Loaded mixed-energy dataset with 8 samples:
+   Energies found: [5.0, 10.0]
+↩️  Resumed from /lustre/work/samumcki/dSiPM_NN/NNTraining/4000x4000_model/NN_model_4000x4000/last.ckpt (epoch=10000, best_val=0.000000)
+Epoch 10001/10050 | Train 3.962182 | Val 5.320301
+Epoch 10002/10050 | Train 3.962182 | Val 5.315798
+Epoch 10003/10050 | Train 3.962182 | Val 5.311295
+Epoch 10004/10050 | Train 3.962182 | Val 5.311295
+Epoch 10005/10050 | Train 3.962182 | Val 4.015388
+Epoch 10006/10050 | Train 3.004290 | Val 2.640420
+Epoch 10007/10050 | Train 1.988761 | Val 1.509096
+Epoch 10008/10050 | Train 1.148371 | Val 0.718414
+Epoch 10009/10050 | Train 0.565215 | Val 0.251894
+Epoch 10010/10050 | Train 0.240379 | Val 0.039082
+Epoch 10011/10050 | Train 0.121632 | Val 0.003052
+Epoch 10012/10050 | Train 0.143279 | Val 0.065247
+Epoch 10013/10050 | Train 0.241286 | Val 0.166681
+Epoch 10014/10050 | Train 0.367030 | Val 0.268964
+Epoch 10015/10050 | Train 0.488762 | Val 0.353775
+Epoch 10016/10050 | Train 0.589183 | Val 0.412360
+Epoch 10017/10050 | Train 0.660609 | Val 0.443011
+Epoch 10018/10050 | Train 0.700432 | Val 0.445289
+Epoch 10019/10050 | Train 0.711242 | Val 0.424998
+Epoch 10020/10050 | Train 0.694920 | Val 0.386747
+Epoch 10021/10050 | Train 0.656559 | Val 0.333737
+Epoch 10022/10050 | Train 0.598585 | Val 0.272013
+Epoch 10023/10050 | Train 0.527355 | Val 0.207598
+Epoch 10024/10050 | Train 0.447202 | Val 0.146220
+Epoch 10025/10050 | Train 0.363226 | Val 0.091393
+Epoch 10026/10050 | Train 0.281156 | Val 0.047668
+Epoch 10027/10050 | Train 0.206339 | Val 0.017920
+Epoch 10028/10050 | Train 0.143965 | Val 0.002796
+Epoch 10029/10050 | Train 0.098710 | Val 0.000499
+Epoch 10030/10050 | Train 0.072448 | Val 0.006904
+Epoch 10031/10050 | Train 0.066231 | Val 0.016767
+Epoch 10032/10050 | Train 0.075319 | Val 0.023691
+Epoch 10033/10050 | Train 0.091024 | Val 0.023707
+Epoch 10034/10050 | Train 0.103019 | Val 0.018100
+Epoch 10035/10050 | Train 0.106050 | Val 0.009535
+Epoch 10036/10050 | Train 0.098080 | Val 0.002353
+Epoch 10037/10050 | Train 0.080310 | Val 0.000372
+Epoch 10038/10050 | Train 0.058211 | Val 0.004924
+Epoch 10039/10050 | Train 0.037360 | Val 0.015282
+Epoch 10040/10050 | Train 0.021617 | Val 0.030465
+Epoch 10041/10050 | Train 0.012069 | Val 0.048479
+Epoch 10042/10050 | Train 0.008947 | Val 0.066264
+Epoch 10043/10050 | Train 0.010600 | Val 0.081705
+Epoch 10044/10050 | Train 0.014731 | Val 0.091871
+Epoch 10045/10050 | Train 0.018643 | Val 0.096896
+Epoch 10046/10050 | Train 0.020337 | Val 0.096746
+Epoch 10047/10050 | Train 0.019643 | Val 0.092461
+Epoch 10048/10050 | Train 0.016733 | Val 0.086020
+Epoch 10049/10050 | Train 0.013174 | Val 0.078011
+Epoch 10050/10050 | Train 0.009387 | Val 0.070324
+✅ Training finished. Best=0.000000. Artifacts in /lustre/work/samumcki/dSiPM_NN/NNTraining/4000x4000_model/NN_model_4000x4000
+Found start_training.txt
+🧠 Loaded mixed-energy dataset with 10 samples:
+   Energies found: [5.0, 10.0]
+🆕 No checkpoint found — starting fresh.
+Epoch 01/50 | Train 3.948340 | Val 3.876533
+💾 New best (val=3.876533) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 02/50 | Train 3.948329 | Val 3.877900
+Epoch 03/50 | Train 3.948329 | Val 3.838329
+💾 New best (val=3.838329) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 04/50 | Train 3.628220 | Val 3.770077
+💾 New best (val=3.770077) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 05/50 | Train 3.370847 | Val 3.678013
+💾 New best (val=3.678013) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 06/50 | Train 3.133324 | Val 3.571999
+💾 New best (val=3.571999) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 07/50 | Train 2.923576 | Val 3.451425
+💾 New best (val=3.451425) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 08/50 | Train 2.715774 | Val 3.316986
+💾 New best (val=3.316986) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 09/50 | Train 2.519869 | Val 3.177013
+💾 New best (val=3.177013) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 10/50 | Train 2.335467 | Val 3.030735
+💾 New best (val=3.030735) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 11/50 | Train 2.161386 | Val 2.874696
+💾 New best (val=2.874696) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 12/50 | Train 1.990276 | Val 2.714542
+💾 New best (val=2.714542) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 13/50 | Train 1.820092 | Val 2.552383
+💾 New best (val=2.552383) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 14/50 | Train 1.656112 | Val 2.389998
+💾 New best (val=2.389998) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 15/50 | Train 1.496001 | Val 2.234563
+💾 New best (val=2.234563) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 16/50 | Train 1.341080 | Val 2.077867
+💾 New best (val=2.077867) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 17/50 | Train 1.192385 | Val 1.920706
+💾 New best (val=1.920706) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 18/50 | Train 1.051936 | Val 1.763316
+💾 New best (val=1.763316) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 19/50 | Train 0.917970 | Val 1.606569
+💾 New best (val=1.606569) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 20/50 | Train 0.789332 | Val 1.452512
+💾 New best (val=1.452512) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 21/50 | Train 0.668362 | Val 1.302970
+💾 New best (val=1.302970) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 22/50 | Train 0.555674 | Val 1.159239
+💾 New best (val=1.159239) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 23/50 | Train 0.454951 | Val 1.023265
+💾 New best (val=1.023265) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 24/50 | Train 0.364967 | Val 0.894091
+💾 New best (val=0.894091) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 25/50 | Train 0.286272 | Val 0.775050
+💾 New best (val=0.775050) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 26/50 | Train 0.219264 | Val 0.662804
+💾 New best (val=0.662804) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 27/50 | Train 0.165160 | Val 0.560535
+💾 New best (val=0.560535) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 28/50 | Train 0.122954 | Val 0.465320
+💾 New best (val=0.465320) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 29/50 | Train 0.092159 | Val 0.379109
+💾 New best (val=0.379109) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 30/50 | Train 0.071591 | Val 0.299016
+💾 New best (val=0.299016) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 31/50 | Train 0.059625 | Val 0.228072
+💾 New best (val=0.228072) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 32/50 | Train 0.053960 | Val 0.165470
+💾 New best (val=0.165470) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 33/50 | Train 0.052752 | Val 0.114354
+💾 New best (val=0.114354) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 34/50 | Train 0.053649 | Val 0.072601
+💾 New best (val=0.072601) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 35/50 | Train 0.054435 | Val 0.040936
+💾 New best (val=0.040936) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 36/50 | Train 0.053927 | Val 0.018652
+💾 New best (val=0.018652) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 37/50 | Train 0.050949 | Val 0.005281
+💾 New best (val=0.005281) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 38/50 | Train 0.045556 | Val 0.000171
+💾 New best (val=0.000171) saved to /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.ckpt and /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000/best.pth
+Epoch 39/50 | Train 0.038326 | Val 0.003875
+Epoch 40/50 | Train 0.029792 | Val 0.017028
+Epoch 41/50 | Train 0.020876 | Val 0.039354
+Epoch 42/50 | Train 0.013343 | Val 0.069710
+Epoch 43/50 | Train 0.008174 | Val 0.104538
+Epoch 44/50 | Train 0.006506 | Val 0.142678
+Epoch 45/50 | Train 0.006901 | Val 0.177760
+Epoch 46/50 | Train 0.008167 | Val 0.213495
+Epoch 47/50 | Train 0.009564 | Val 0.250951
+Epoch 48/50 | Train 0.010260 | Val 0.289923
+Epoch 49/50 | Train 0.009827 | Val 0.332337
+Epoch 50/50 | Train 0.008454 | Val 0.375817
+✅ Training finished. Best=0.000171. Artifacts in /lustre/work/samumcki/dSiPM_NN/NNTraining/2000x2000_model/NN_model_2000x2000

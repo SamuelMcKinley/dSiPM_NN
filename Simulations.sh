@@ -27,9 +27,9 @@ cd \${temp_dir}
 
 # Loop as long as the master script is running
 echo "Searching for start_Simulations_${i}.txt"
-while squeue -u "\$USER" | grep -q "masterT"; do
+while squeue -u "\$USER" | grep -q "batch_wo"; do
 
-  # Look for text file used to communicate between masterTrain.sh and Simulations.sh
+  # Look for text file used to communicate between batch_workflow.py and Simulations.sh
   # Script will only run when file is found
   if [ ! -f "start_Simulations_${i}.txt" ]; then
     sleep 1
@@ -64,7 +64,7 @@ while squeue -u "\$USER" | grep -q "masterT"; do
     # Remove communication text file
     rm -rf start_Simulations_${i}.txt
 
-    # Communicate to masterTrain that the simulation is finished
+    # Communicate to workflow_manager.py that the simulation is finished
     touch Simulation_check/${i}.done
   fi
 

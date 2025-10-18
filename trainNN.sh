@@ -7,15 +7,16 @@ gen_script() {
 
     cat << EOF > "NN_training.sh"
 #!/bin/bash
-#SBATCH -J NN_training.sh
+#SBATCH -J "trainNN.sh"
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 #SBATCH -o LOGDIR/%x.%j.out
 #SBATCH -e LOGDIR/%x.%j.err
-#SBATCH -p matador
-#SBATCH -c 8
-#SBATCH --mem=16G
-#SBATCH --gpus-per-node=1
+#SBATCH -p nocona
+#SBATCH -c 2
+#SBATCH --mem-per-cpu=32G
+
+set -euo pipefail
 
 cd ..
 home_dir=\$PWD
@@ -31,12 +32,12 @@ cd \${temp_dir}
 
 
 # Loop as long as the master script is running
-while squeue -u "\$USER" | grep -q "masterT"; do
+while squeue -u "\$USER" | grep -q "batch_wo"; do
 
-  # Look for text files used to communicate between masterTrain.sh and trainNN.sh
+  # Look for text files used to communicate between batch_workflow.py and trainNN.sh
   # Script will only run when file is found
   if [ ! -f "start_training.txt" ]; then
-    sleep 5
+    sleep 1
   else
     echo "Found start_training.txt"
 
@@ -51,7 +52,7 @@ while squeue -u "\$USER" | grep -q "masterT"; do
     cd \${SPAD_Size}_model
 
 
-    # Train entire group to model. Args: <folder with tensors> <energy> --spad <SPAD Size>
+    # Train entire group to model. Args: <folder with tensors> --spad <SPAD Size>
     python3 -u train.py \${temp_dir}/tensfold \
     --spad \${SPAD_Size}
 
@@ -73,12 +74,12 @@ while squeue -u "\$USER" | grep -q "masterT"; do
 
     rm -rf \${temp_dir}/tensfold/*
 
-    # cd \${temp_dir}
+    cd \${temp_dir}
 
     # Remove communication text file
     rm -rf start_training.txt
 
-    # Communicate to masterTrain.sh that the NN training is finished
+    # Communicate to workflow_manager.py that the NN training is finished
     touch NNTraining_check/0.done
   fi
 

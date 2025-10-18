@@ -17,8 +17,10 @@ gen_script() {
 #SBATCH -o LOGDIR/%x.%j.out
 #SBATCH -e LOGDIR/%x.%j.err
 #SBATCH -p nocona
-#SBATCH -c 1
-#SBATCH --mem-per-cpu=16G
+#SBATCH -c 2
+#SBATCH --mem-per-cpu=32G
+
+set -euo pipefail
 
 # Load environment needed for python imports
 echo "Loading environment ..."
@@ -31,9 +33,9 @@ temp_dir=/lustre/scratch/\$USER/dSiPM_NN/
 cd \${temp_dir}
 
 # Loop as long as the master script is running
-while squeue -u "\$USER" | grep -q "masterT"; do
+while squeue -u "\$USER" | grep -q "batch_wo"; do
 
-  # Look for text file used to communicate between masterTrain.sh and mass_tensorMaker.sh
+  # Look for text file used to communicate between batch_workflow.py and mass_tensorMaker.sh
   # Script will only run when file is found
   if [ ! -f "start_tensorMaker_${i}.txt" ]; then
     sleep 1
@@ -61,8 +63,8 @@ while squeue -u "\$USER" | grep -q "masterT"; do
     # Remove communication text file
     rm -rf start_tensorMaker_${i}.txt
 
-    # Communicate to masterTrain.sh that the tensor making is finished
-    touch tensorMaker_check/${i}.done
+    # Communicate to workflow_manager.py that the tensor making is finished
+    touch tensorMaking_check/${i}.done
   fi
 
 done

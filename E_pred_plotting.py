@@ -12,11 +12,14 @@ def parse_args():
     return p.parse_args()
 
 def extract_energy_from_filename(fname):
-    # assumes filenames like loss_history_10.txt
+    # assumes filenames like loss_history_10.txt or loss_history_mixed.txt
     m = re.search(r"loss_history_(\d+)", fname)
-    if not m:
-        raise ValueError(f"Could not parse energy from filename: {fname}")
-    return float(m.group(1))
+    if m:
+        return float(m.group(1))
+    else:
+        # fallback for mixed or non-numeric runs
+        print(f"⚠️  Non-numeric energy found in {fname}, treating as 'mixed'")
+        return -1.0  # sentinel value for mixed files
 
 def main():
     args = parse_args()
@@ -57,15 +60,17 @@ def main():
         actuals.append(np.mean(E_actual))  # all rows should have same actual, but take mean for safety
 
         # ---- Histogram plot per energy ----
+        energy_label = f"{energy:.0f} GeV" if energy >= 0 else "Mixed"
+
         plt.figure()
         plt.hist(E_pred, bins=20, alpha=0.7, color="steelblue", edgecolor="black")
         plt.axvline(E_actual[0], color="red", linestyle="--", label=f"True {E_actual[0]:.2f}")
         plt.xlabel("Predicted Energy (GeV)")
         plt.ylabel("Counts")
-        plt.title(f"SPAD {spad} | Energy {energy} GeV")
+        plt.title(f"SPAD {spad} | Energy {energy_label}")
         plt.legend()
         plt.tight_layout()
-        plt.savefig(os.path.join(outdir, f"hist_{spad}_{int(energy)}GeV.png"))
+        plt.savefig(os.path.join(outdir, f"hist_{spad}_{energy_label.replace(' ', '')}.png"))
         plt.close()
 
     # ---- E_pred vs E_actual plot ----

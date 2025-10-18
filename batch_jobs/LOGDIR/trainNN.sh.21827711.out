@@ -1,0 +1,57 @@
+Loading environment ...
+Environment loaded.
+Found start_training.txt
+🧠 Loaded mixed-energy dataset with 10 samples:
+   Energies found: [5.0, 10.0]
+↩️  Resumed from /lustre/work/samumcki/dSiPM_NN/NNTraining/4000x4000_model/NN_model_4000x4000/last.ckpt (epoch=50, best_val=0.000580)
+Epoch 51/100 | Train 0.177971 | Val 0.019601
+Epoch 52/100 | Train 0.165401 | Val 0.025754
+Epoch 53/100 | Train 0.147673 | Val 0.032755
+Epoch 54/100 | Train 0.128206 | Val 0.040075
+Epoch 55/100 | Train 0.109386 | Val 0.047513
+Epoch 56/100 | Train 0.091841 | Val 0.054740
+Epoch 57/100 | Train 0.076019 | Val 0.062052
+Epoch 58/100 | Train 0.062291 | Val 0.069883
+Epoch 59/100 | Train 0.049844 | Val 0.078921
+Epoch 60/100 | Train 0.038765 | Val 0.088983
+Epoch 61/100 | Train 0.029111 | Val 0.099936
+Epoch 62/100 | Train 0.020749 | Val 0.111312
+Epoch 63/100 | Train 0.014096 | Val 0.122513
+Epoch 64/100 | Train 0.008924 | Val 0.132841
+Epoch 65/100 | Train 0.005361 | Val 0.141931
+Epoch 66/100 | Train 0.003278 | Val 0.149426
+Epoch 67/100 | Train 0.002405 | Val 0.155053
+Epoch 68/100 | Train 0.002341 | Val 0.158353
+Epoch 69/100 | Train 0.002665 | Val 0.159097
+Epoch 70/100 | Train 0.003062 | Val 0.157863
+Epoch 71/100 | Train 0.003298 | Val 0.155253
+Epoch 72/100 | Train 0.003287 | Val 0.151886
+Epoch 73/100 | Train 0.003066 | Val 0.148755
+Epoch 74/100 | Train 0.002695 | Val 0.146715
+Epoch 75/100 | Train 0.002269 | Val 0.146142
+Epoch 76/100 | Train 0.001843 | Val 0.147251
+Epoch 77/100 | Train 0.001433 | Val 0.149977
+Epoch 78/100 | Train 0.001054 | Val 0.153793
+Epoch 79/100 | Train 0.000743 | Val 0.158121
+Epoch 80/100 | Train 0.000520 | Val 0.162218
+Epoch 81/100 | Train 0.000400 | Val 0.165392
+Epoch 82/100 | Train 0.000380 | Val 0.167124
+Epoch 83/100 | Train 0.000425 | Val 0.167191
+Epoch 84/100 | Train 0.000491 | Val 0.165408
+Epoch 85/100 | Train 0.000542 | Val 0.161808
+Epoch 86/100 | Train 0.000550 | Val 0.156545
+Epoch 87/100 | Train 0.000508 | Val 0.150217
+Epoch 88/100 | Train 0.000428 | Val 0.143110
+Epoch 89/100 | Train 0.000331 | Val 0.135386
+Epoch 90/100 | Train 0.000242 | Val 0.127621
+Epoch 91/100 | Train 0.000178 | Val 0.120201
+Epoch 92/100 | Train 0.000147 | Val 0.113465
+Epoch 93/100 | Train 0.000145 | Val 0.107620
+Epoch 94/100 | Train 0.000160 | Val 0.102761
+Epoch 95/100 | Train 0.000179 | Val 0.098879
+Epoch 96/100 | Train 0.000192 | Val 0.095959
+Epoch 97/100 | Train 0.000193 | Val 0.093868
+Epoch 98/100 | Train 0.000181 | Val 0.092475
+Epoch 99/100 | Train 0.000161 | Val 0.091627
+Epoch 100/100 | Train 0.000136 | Val 0.091152
+✅ Training finished. Best=0.000580. Artifacts in /lustre/work/samumcki/dSiPM_NN/NNTraining/4000x4000_model/NN_model_4000x4000
