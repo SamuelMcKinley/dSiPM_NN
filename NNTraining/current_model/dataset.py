@@ -1,111 +1,108 @@
+#!/usr/bin/env python3
 import os
-from pathlib import Path
-from typing import List, Tuple, Union
 import re
+from pathlib import Path
+from typing import List, Tuple, Optional, Dict, Any
+
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+FNAME_RE = re.compile(
+    r"""^tensor_            # prefix
+        (?P<idx>[^_]+)_     # event index or id
+        (?P<particle>[^_]+)_
+        (?P<energy>[\d.]+)_ # energy in GeV (float ok)
+        (?P<group>[^_]+)_
+        (?P<spad>[^_]+)     # SPAD label, e.g., 4000x4000
+        \.npy$""",
+    re.VERBOSE,
+)
+
+
+def _parse_energy_from_name(p: Path) -> float:
+    m = FNAME_RE.match(p.name)
+    if not m:
+        raise ValueError(f"Filename does not match expected pattern: {p.name}")
+    return float(m.group("energy"))
+
+
+def _to_chw(arr: np.ndarray) -> np.ndarray:
+    """
+    Ensure output is (C, H, W).
+    Accepts (H, W) -> (1, H, W)
+            (C, H, W) -> unchanged
+            (H, W, C) -> transpose to (C, H, W) when C is small-ish
+    """
+    if arr.ndim == 2:
+        return arr[np.newaxis, ...]
+    if arr.ndim == 3:
+        # If last dim looks like channels, move it to first
+        if arr.shape[-1] <= 16 and arr.shape[0] != arr.shape[-1]:
+            return np.transpose(arr, (2, 0, 1))
+        # Already (C,H,W)
+        return arr
+    raise ValueError(f"Unsupported tensor shape {arr.shape}; expected 2D or 3D")
+
 
 class PhotonEnergyDataset(Dataset):
     """
-    Loads photon tensors from a .npy file or a directory of .npy files.
-
-    Expected array shapes per sample:
-      - (T, H, W)  -> T treated as channels (C=T)
-      - (H, W)     -> promoted to (1, H, W)
-
-    Returns (x, y) where:
-      x: float32 tensor [C, H, W]
-      y: float32 scalar tensor (energy in chosen target space)
-
-    Args:
-      tensor_path: path to .npy or directory of .npy files
-      energy: float (GeV) or None (will parse from filename if None)
-      target_space: "linear" or "log"
-      mmap: use numpy memmap for lower RAM footprint
+    Loads tensors from a folder (or a single .npy file) and predicts linear energy.
+    Energies are extracted from filenames:
+      tensor_{i}_{particle}_{energy}_{group}_{spad}.npy
     """
 
     def __init__(
         self,
-        tensor_path: Union[str, os.PathLike],
-        energy: Union[float, None] = None,  # allow None for mixed
-        target_space: str = "log",
+        tensor_path: str,
         mmap: bool = True,
+        dtype: np.dtype = np.float32,
     ):
-        self.root = Path(tensor_path)
-        if self.root.is_dir():
-            self.files: List[Path] = sorted(p for p in self.root.glob("*.npy") if p.is_file())
+        path = Path(tensor_path)
+        if path.is_file() and path.suffix.lower() == ".npy":
+            self.files = [path]
+        elif path.is_dir():
+            # DO NOT sort (preserve "random" input order as requested)
+            self.files = [p for p in path.iterdir() if p.suffix.lower() == ".npy"]
         else:
-            if self.root.suffix.lower() != ".npy":
-                raise ValueError(f"Expected .npy or directory, got: {self.root}")
-            self.files = [self.root]
+            raise FileNotFoundError(f"tensor_path not found or not a .npy: {tensor_path}")
 
-        if not self.files:
-            raise FileNotFoundError(f"No .npy files found under {self.root}")
+        if len(self.files) == 0:
+            raise RuntimeError(f"No .npy files found in {tensor_path}")
 
-        # Extract energies from filenames if energy is None
-        self.energies: List[float] = []
-        if energy is None:
-            pattern = re.compile(
-                r"tensor_\d+_[A-Za-z0-9\+\-]+_([\d\.]+)_\d+_[A-Za-z0-9x]+\.npy"
-            )
-            for f in self.files:
-                m = pattern.match(f.name)
-                if not m:
-                    raise ValueError(
-                        f"Filename {f.name} does not match expected pattern "
-                        "(tensor_i_particle_energy_group_SPAD.npy)"
-                    )
-                self.energies.append(float(m.group(1)))
-        else:
-            self.energies = [float(energy)] * len(self.files)
-
-        # Save linear and log targets
-        self.energy_linear = np.array(self.energies, dtype=np.float32)
-
-        if target_space not in ("linear", "log"):
-            raise ValueError("target_space must be 'linear' or 'log'")
-        self.target_space = target_space
         self.mmap = mmap
+        self.dtype = dtype
 
-        # Inspect first sample to record dims
-        arr0 = self._load_array(self.files[0])
-        x0 = self._to_CHW(arr0)
-        self.channels, self.height, self.width = x0.shape
+        # Peek first file to infer shape/channels
+        arr0 = np.load(self.files[0], mmap_mode="r" if mmap else None)
+        arr0 = _to_chw(np.asarray(arr0, dtype=self.dtype))
+        self.channels, self.height, self.width = arr0.shape
+
+        # Pre-extract energies and keep names
+        self._energies: List[float] = []
+        self._names: List[str] = []
+        for p in self.files:
+            e = _parse_energy_from_name(p)
+            self._energies.append(e)
+            self._names.append(p.name)
 
     def __len__(self) -> int:
         return len(self.files)
 
-    def _load_array(self, path: Path) -> np.ndarray:
-        return np.load(path, mmap_mode="r" if self.mmap else None)
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, str]:
+        p = self.files[idx]
+        e = self._energies[idx]
+        name = self._names[idx]
 
-    def _to_CHW(self, arr: np.ndarray) -> np.ndarray:
-        if arr.ndim == 2:
-            arr = arr[None, :, :]  # (H, W) -> (1, H, W)
-        elif arr.ndim == 3:
-            pass  # (T, H, W)
-        else:
-            raise ValueError(f"Unsupported tensor shape {arr.shape}, expected (H,W) or (T,H,W)")
-        return arr
+        arr = np.load(p, mmap_mode="r" if self.mmap else None).astype(self.dtype, copy=False)
+        arr = _to_chw(arr)  # (C,H,W)
+        x = torch.from_numpy(arr)  # float32
+        y = torch.tensor(e, dtype=torch.float32)  # linear energy target
 
-    def _target_value(self, idx: int) -> float:
-        E = self.energy_linear[idx]
-        if self.target_space == "linear":
-            return float(E)
-        else:
-            eps = 1e-8  # avoid log(0)
-            return float(np.log(E + eps))
+        return x, y, name
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        path = self.files[idx]
-        arr = self._load_array(path)
-        chw = self._to_CHW(np.asarray(arr, dtype=np.float32, order="C"))
+    def get_all_energies(self) -> List[float]:
+        return list(self._energies)
 
-        x = torch.from_numpy(chw)  # [C, H, W]
-        y = torch.tensor(self._target_value(idx), dtype=torch.float32)  # scalar
-        return x, y
-
-    # Helper to expose all energies (for train.py logging)
-    def get_all_energies(self):
-        return self.energy_linear.tolist()
+    def get_all_names(self) -> List[str]:
+        return list(self._names)

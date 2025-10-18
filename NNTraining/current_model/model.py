@@ -1,40 +1,42 @@
+#!/usr/bin/env python3
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
+def conv_block(in_ch, out_ch, k=3, s=1, p=1, bn=True):
+    layers = [nn.Conv2d(in_ch, out_ch, kernel_size=k, stride=s, padding=p, bias=not bn)]
+    if bn:
+        layers.append(nn.BatchNorm2d(out_ch))
+    layers.append(nn.ReLU(inplace=True))
+    return nn.Sequential(*layers)
+
+
 class EnergyRegressionCNN(nn.Module):
     """
-    Sturdy CNN for [B, C, H, W] inputs producing a scalar regression output.
-    C is typically the number of time slices (channels) from your photon tensor.
+    Simple, robust CNN for regression on (C,H,W) tensors.
+    Uses global average pooling before a small MLP head.
     """
-    def __init__(self, in_channels: int):
+
+    def __init__(self, in_channels: int, hidden: int = 128, bn: bool = True, dropout: float = 0.1):
         super().__init__()
-        if in_channels is None or in_channels < 1:
-            raise ValueError("in_channels must be a positive integer")
-
-        self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=3, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(16)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(64)
-
+        self.stem = nn.Sequential(
+            conv_block(in_channels, 32, k=3, s=1, p=1, bn=bn),
+            conv_block(32, 64, k=3, s=2, p=1, bn=bn),   # downsample
+            conv_block(64, 128, k=3, s=2, p=1, bn=bn),  # downsample
+            conv_block(128, 128, k=3, s=1, p=1, bn=bn),
+        )
+        self.gap = nn.AdaptiveAvgPool2d((1, 1))
         self.head = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
-            nn.Linear(64, 64),
+            nn.Linear(128, hidden),
             nn.ReLU(inplace=True),
-            nn.Linear(64, 1),
+            nn.Dropout(dropout),
+            nn.Linear(hidden, 1),
         )
 
     def forward(self, x):
-        # x: [B, C, H, W]
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.max_pool2d(x, 2)
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.max_pool2d(x, 2)
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = self.head(x)  # [B, 1]
-        return x.squeeze(-1)  # [B]
-
+        x = self.stem(x)
+        x = self.gap(x)
+        x = self.head(x)
+        return x.squeeze(-1)  # (N,)

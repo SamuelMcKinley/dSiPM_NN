@@ -1,133 +1,137 @@
 #!/usr/bin/env python3
-import argparse
-from pathlib import Path
+"""
+Visualize training results from loss_history.csv and val_predictions_epoch_###.csv.
+"""
+
+import os
+import re
+import glob
 import numpy as np
-
-# Use a non-interactive backend (safer on HPC without DISPLAY)
-import matplotlib
-matplotlib.use("Agg")
+import pandas as pd
 import matplotlib.pyplot as plt
+from pathlib import Path
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
 
 
-def parse_args():
-    p = argparse.ArgumentParser(description="Plot loss history from training log.")
-    p.add_argument("loss_file", help="Path to loss_history_<energy>.txt")
-    p.add_argument("--interval", type=int, default=50, help="Plot every N epochs incrementally")
-    p.add_argument("--outdir", type=str, default="loss_plots", help="Directory to save loss plots")
-    return p.parse_args()
-
-
-def read_loss_file(path: Path):
-    epochs, train, val = [], [], []
-    with path.open("r") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split(",")
-            if len(parts) < 3:
-                continue  # skip malformed lines
-            try:
-                e = int(parts[0])
-                tr = float(parts[1])
-                va = float(parts[2])
-            except ValueError:
-                continue  # skip non-numeric lines (e.g., headers)
-            epochs.append(e)
-            train.append(tr)
-            val.append(va)
-
-    # Sort by epoch just in case
-    order = np.argsort(epochs)
-    epochs = list(np.array(epochs)[order])
-    train = list(np.array(train)[order])
-    val = list(np.array(val)[order])
-    return epochs, train, val
-
-
-def compute_increments(total_epochs: int, interval: int):
-    """Generate plot endpoints: interval, 2*interval, ..., up to total_epochs"""
-    increments = []
-    current = interval
-    
-    # Add multiples of interval
-    while current < total_epochs:
-        increments.append(current)
-        current += interval
-    
-    # Always add the final epoch count
-    increments.append(total_epochs)
-    
-    return sorted(set(increments))  # Remove duplicates and sort
-
-
-def plot_incremental(epochs, train_losses, val_losses, energy, outdir: Path, interval: int):
-    outdir.mkdir(parents=True, exist_ok=True)
-    total_epochs = len(epochs)
-
-    print(f"[plot_loss] total_epochs={total_epochs}, interval={interval}")
-    increments = compute_increments(total_epochs, interval)
-    print(f"[plot_loss] increments to generate: {increments}")
-
-    for end_epoch in increments:
-        # Get data up to end_epoch
-        sub_train = train_losses[:end_epoch]
-        sub_val = val_losses[:end_epoch]
-        x = np.arange(1, end_epoch + 1)  # epoch numbers 1 to end_epoch
-
-        plt.figure(figsize=(12, 6))
-        
-        # Plot as lines (more typical for loss curves)
-        plt.plot(x, sub_train, 'b-', linewidth=2, label="Train Loss", alpha=0.8)
-        plt.plot(x, sub_val, 'r-', linewidth=2, label="Validation Loss", alpha=0.8)
-
-        # Add vertical red lines every 50 epochs
-        for vline_epoch in range(50, end_epoch + 1, 50):
-            plt.axvline(x=vline_epoch, color='red', linestyle='--', linewidth=1, alpha=0.7)
-
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.title(f"Training Loss History (Epochs 1-{end_epoch}) | Energy = {energy} GeV")
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        
-        # Set reasonable axis limits
-        plt.xlim(1, end_epoch)
-        
-        # Optional: set y-axis to start from 0 or auto-scale nicely
-        y_min = min(min(sub_train), min(sub_val))
-        y_max = max(max(sub_train), max(sub_val))
-        plt.ylim(max(0, y_min * 0.95), y_max * 1.05)
-
-        filename = outdir / f"loss_{int(energy)}GeV_epochs_1-{end_epoch}.png"
-        plt.savefig(filename, dpi=150, bbox_inches='tight')
-        plt.close()
-        print(f"[plot_loss] ✅ Saved {filename}")
+def plot_with_dashed_lines(ax, x, y, xlabel, ylabel, title):
+    ax.plot(x, y, 'b-', lw=2)
+    for n in range(50, int(max(x)) + 50, 50):
+        ax.axvline(n, color='r', ls='--', lw=0.8, alpha=0.6)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.grid(True, ls=':', alpha=0.6)
 
 
 def main():
-    args = parse_args()
-    loss_path = Path(args.loss_file).resolve()
-    outdir = Path(args.outdir).resolve()
-    print(f"[plot_loss] Using loss file: {loss_path}")
-    print(f"[plot_loss] Output directory: {outdir}")
+    parser_description = "Plot loss curves and energy predictions from NN training output."
+    import argparse
+    ap = argparse.ArgumentParser(description=parser_description)
+    ap.add_argument("folder", help="Folder containing loss_history.csv and val_predictions_epoch_###.csv")
+    ap.add_argument("--outdir", default="plots", help="Directory to save plots")
+    args = ap.parse_args()
 
-    # Parse energy from filename like ".../loss_history_5.txt"
-    energy_str = loss_path.stem.split("_")[-1]
-    try:
-        energy = float(energy_str)
-    except ValueError:
-        print(f"[plot_loss] ⚠️ Could not extract energy from filename: {loss_path.name}")
-        return
+    folder = Path(args.folder)
+    outdir = Path(args.outdir)
+    outdir.mkdir(exist_ok=True)
 
-    epochs, train_losses, val_losses = read_loss_file(loss_path)
-    if not epochs:
-        print("[plot_loss] ⚠️ No epochs parsed from file (empty or malformed).")
-        return
+    # ------------------- LOSS HISTORY -------------------
+    loss_csv = folder / "loss_history.csv"
+    if not loss_csv.exists():
+        raise FileNotFoundError(f"{loss_csv} not found")
 
-    print(f"[plot_loss] Loaded {len(epochs)} epochs of data")
-    plot_incremental(epochs, train_losses, val_losses, energy, outdir, args.interval)
+    df = pd.read_csv(loss_csv)
+    epochs = df["epoch"]
+    val_loss = df["val_loss"]
+    train_loss = df["train_loss"]
+    mae = df["val_mae"]
+    rmse = df["val_rmse"]
 
+    best_epoch = df.loc[df["val_loss"].idxmin(), "epoch"]
+    best_loss = df["val_loss"].min()
+
+    # 1. Validation loss vs epoch
+    fig, ax = plt.subplots(figsize=(8,5))
+    plot_with_dashed_lines(ax, epochs, val_loss, "Epoch", "Validation Loss (MSE)", "Validation Loss vs Epoch")
+    ax.plot(epochs, train_loss, 'g--', lw=1.5, label="Train Loss")
+    ax.legend()
+    ax.axvline(best_epoch, color='k', lw=1.5, ls=':', label=f"Best ({best_epoch})")
+    plt.tight_layout()
+    fig.savefig(outdir / "validation_loss_vs_epoch.png", dpi=200)
+    plt.close(fig)
+
+    # 2. MSE (same as val_loss) vs epoch (redundant but separate figure)
+    fig, ax = plt.subplots(figsize=(8,5))
+    plot_with_dashed_lines(ax, epochs, val_loss, "Epoch", "MSE", "MSE vs Epoch")
+    plt.tight_layout()
+    fig.savefig(outdir / "mse_vs_epoch.png", dpi=200)
+    plt.close(fig)
+
+    # 3. MAE / RMSE curves
+    fig, ax = plt.subplots(figsize=(8,5))
+    ax.plot(epochs, mae, 'b-', lw=2, label="MAE")
+    ax.plot(epochs, rmse, 'orange', lw=2, label="RMSE")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Error (GeV)")
+    ax.set_title("Validation Errors vs Epoch")
+    for n in range(50, int(max(epochs))+50, 50):
+        ax.axvline(n, color='r', ls='--', lw=0.8, alpha=0.6)
+    ax.legend()
+    ax.grid(True, ls=':')
+    plt.tight_layout()
+    fig.savefig(outdir / "mae_rmse_vs_epoch.png", dpi=200)
+    plt.close(fig)
+
+    # ------------------- PREDICTION SCATTER -------------------
+    val_files = sorted(glob.glob(str(folder / "val_predictions_epoch_*.csv")))
+    if not val_files:
+        raise FileNotFoundError(f"No val_predictions_epoch_###.csv files found in {folder}")
+
+    # Use the latest (or best) one
+    epoch_nums = [int(re.search(r"epoch_(\d+)", f).group(1)) for f in val_files]
+    latest_idx = np.argmax(epoch_nums)
+    val_csv = val_files[latest_idx]
+    print(f"Using predictions from {val_csv}")
+
+    pred_df = pd.read_csv(val_csv)
+    y_true = pred_df["true_energy"].values
+    y_pred = pred_df["pred_energy"].values
+    dev = y_pred - y_true
+
+    # Fit linear regression (Pred vs True)
+    reg = LinearRegression().fit(y_true.reshape(-1,1), y_pred)
+    y_fit = reg.predict(y_true.reshape(-1,1))
+    slope = reg.coef_[0]
+    intercept = reg.intercept_
+    r2 = r2_score(y_true, y_pred)
+
+    fig, ax = plt.subplots(figsize=(6,6))
+    ax.scatter(y_true, y_pred, s=20, alpha=0.7, label="Samples")
+    ax.plot(y_true, y_true, 'k--', lw=1.5, label="Ideal (y=x)")
+    ax.plot(y_true, y_fit, 'r-', lw=2, label=f"Fit: y={slope:.3f}x+{intercept:.3f}\nR²={r2:.4f}")
+    ax.set_xlabel("True Energy (GeV)")
+    ax.set_ylabel("Predicted Energy (GeV)")
+    ax.set_title("Predicted vs True Energy")
+    ax.grid(True, ls=':')
+    ax.legend()
+    plt.tight_layout()
+    fig.savefig(outdir / "pred_vs_true.png", dpi=250)
+    plt.close(fig)
+
+    # 4. Residuals plot
+    fig, ax = plt.subplots(figsize=(8,5))
+    ax.scatter(y_true, dev, s=20, alpha=0.7)
+    ax.axhline(0, color='k', ls='--')
+    ax.set_xlabel("True Energy (GeV)")
+    ax.set_ylabel("Residual (Pred - True)")
+    ax.set_title("Residuals vs True Energy")
+    ax.grid(True, ls=':')
+    plt.tight_layout()
+    fig.savefig(outdir / "residuals_vs_true.png", dpi=250)
+    plt.close(fig)
+
+    print(f"✅ Plots saved in {outdir.resolve()}")
 
 if __name__ == "__main__":
     main()

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import os
+import csv
 import json
 import argparse
 from pathlib import Path
+from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -15,23 +17,18 @@ from model import EnergyRegressionCNN
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Incremental training for EnergyRegressionCNN on photon tensors.")
-    p.add_argument("tensor_path", help="Path to a single .npy OR a directory containing .npy files")
-    p.add_argument("--energy", type=float,
-                   help="True energy in GeV for these tensors (optional if filenames encode energies)")
-    p.add_argument("--spad", required=True, help='SPAD size label (e.g., "50x50", "70x70", "4000x4000")')
-    p.add_argument("--epochs", type=int, default=50)
+    p = argparse.ArgumentParser(description="Train CNN to predict linear energy from photon tensors.")
+    p.add_argument("tensor_path", help="Folder of .npy tensors (or a single .npy file)")
+    p.add_argument("--epochs", type=int, default=50, help="Number of epochs (default: 50)")
     p.add_argument("--bs", type=int, default=32, help="Batch size")
     p.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
-    p.add_argument("--target-space", choices=["linear", "log"], default="log",
-                   help="Train to predict energy (linear) or log(energy) (log)")
-    p.add_argument("--workers", type=int, default=8, help="Number of DataLoader workers")
+    p.add_argument("--val-split", type=float, default=0.30, help="Validation fraction (default 0.30 = 30%)")
+    p.add_argument("--workers", type=int, default=8, help="DataLoader workers")
     p.add_argument("--cpu-threads", type=int, default=0, help="torch.set_num_threads; 0 = leave default")
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--outdir", default="NN_model_{spad}",
-                   help='Output directory (supports {spad} and {energy}). Default: "NN_model_{spad}"')
-    p.add_argument("--val-split", type=float, default=0.2, help="Validation fraction (when >1 samples)")
-    p.add_argument("--save-ts", action="store_true", help="Also save a TorchScript predictor")
+    p.add_argument("--outdir", default="NN_model", help="Output directory for runs")
+    p.add_argument("--tag", default="", help="Optional tag to distinguish runs")
+    p.add_argument("--early-stop", type=int, default=0, help="Early stop patience (epochs). 0=off")
     return p.parse_args()
 
 
@@ -44,74 +41,42 @@ def set_seed(seed: int):
         torch.cuda.manual_seed_all(seed)
 
 
-def prepare_outdir(args):
-    outdir = Path(args.outdir.format(spad=args.spad, energy=args.energy)).resolve()
-    outdir.mkdir(parents=True, exist_ok=True)
-    return outdir
+def make_outdir(base: str, tag: str) -> Path:
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    name = f"{base}"
+    if tag:
+        name += f"_{tag}"
+    name += f"_{ts}"
+    out = Path(name).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    return out
 
 
-def maybe_load_checkpoint(model, optimizer, ckpt_path: Path):
-    """Load model/optimizer if checkpoint exists. Return (start_epoch, best_val)."""
-    start_epoch, best_val = 0, float("inf")
-    if ckpt_path.exists():
-        ckpt = torch.load(ckpt_path, map_location="cpu")
-        model.load_state_dict(ckpt["model"])
-        if "optim" in ckpt:
-            optimizer.load_state_dict(ckpt["optim"])
-        start_epoch = ckpt.get("epoch", 0)
-        best_val = ckpt.get("best_val", float("inf"))
-        print(f"↩️  Resumed from {ckpt_path} (epoch={start_epoch}, best_val={best_val:.6f})")
-    else:
-        print("🆕 No checkpoint found — starting fresh.")
-    return start_epoch, best_val
-
-
-def save_checkpoint(ckpt_path: Path, model, optimizer, epoch, best_val, meta: dict):
-    ckpt = {
-        "model": model.state_dict(),
-        "optim": optimizer.state_dict(),
-        "epoch": epoch,
-        "best_val": best_val,
-        "meta": meta,
-    }
-    tmp = ckpt_path.with_suffix(ckpt_path.suffix + ".tmp")
-    torch.save(ckpt, tmp)
-    tmp.replace(ckpt_path)
+def save_json(obj: dict, path: Path):
+    with open(path, "w") as f:
+        json.dump(obj, f, indent=2)
 
 
 def main():
     args = parse_args()
     set_seed(args.seed)
-
     if args.cpu_threads > 0:
         torch.set_num_threads(args.cpu_threads)
 
-    # ------- Dataset / Split -------
-    dataset = PhotonEnergyDataset(
-        tensor_path=args.tensor_path,
-        energy=args.energy,  # may be None for mixed-energy folders
-        target_space=args.target_space,
-        mmap=True,
-    )
+    # -------- Dataset --------
+    dataset = PhotonEnergyDataset(args.tensor_path, mmap=True)
+    uniq_e = sorted(set(dataset.get_all_energies()))
+    print(f"Loaded {len(dataset)} samples. Energies present: {uniq_e}")
 
-    energies_in_data = dataset.get_all_energies()
-    if len(set(energies_in_data)) > 1:
-        print(f"🧠 Loaded mixed-energy dataset with {len(dataset)} samples:")
-        print(f"   Energies found: {sorted(set(energies_in_data))}")
-    else:
-        print(f"🧠 Loaded dataset with {len(dataset)} samples at {energies_in_data[0]} GeV")
+    # 70/30 split (as requested) using random_split with fixed seed
+    n_total = len(dataset)
+    n_val = max(1, int(round(n_total * args.val_split)))
+    n_train = max(1, n_total - n_val)
 
-    # ------- Train/Val split -------
-    if len(dataset) <= 1 or args.val_split <= 0:
-        train_set = dataset
-        val_set = dataset
-    else:
-        train_len = max(1, int(len(dataset) * (1.0 - args.val_split)))
-        val_len = max(1, len(dataset) - train_len)
-        generator = torch.Generator().manual_seed(args.seed)
-        train_set, val_set = random_split(dataset, [train_len, val_len], generator=generator)
+    gen = torch.Generator().manual_seed(args.seed)
+    train_set, val_set = random_split(dataset, [n_train, n_val], generator=gen)
 
-    # ------- Device / AMP -------
+    # -------- Device / AMP --------
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     if use_cuda:
@@ -124,7 +89,7 @@ def main():
     amp_ctx = torch.amp.autocast("cuda", enabled=use_cuda)
     scaler = torch.amp.GradScaler("cuda") if use_cuda else None
 
-    # ------- DataLoaders -------
+    # -------- Loaders --------
     pin = use_cuda
     workers = max(0, args.workers)
     train_loader = DataLoader(
@@ -138,34 +103,42 @@ def main():
         drop_last=False,
     )
 
-    # ------- Model / Loss / Optim -------
-    model = EnergyRegressionCNN(in_channels=dataset.channels).to(device)
+    # -------- Model / Loss / Optim --------
+    in_channels = dataset.channels
+    model = EnergyRegressionCNN(in_channels=in_channels).to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-    # ------- Outdir / Logging setup -------
-    outdir = prepare_outdir(args)
-    loss_log_path = (
-        outdir / f"loss_history_{int(args.energy)}.txt"
-        if args.energy is not None
-        else outdir / "loss_history_mixed.txt"
-    )
-    last_ckpt = outdir / "last.ckpt"
-    best_ckpt = outdir / "best.ckpt"
+    # -------- Outputs --------
+    outdir = make_outdir(args.outdir, args.tag)
+    ckpt_last = outdir / "last.ckpt"
+    ckpt_best = outdir / "best.ckpt"
     best_state = outdir / "best.pth"
-    meta_path = outdir / "trained_model_meta.json"
+    meta_path = outdir / "run_meta.json"
+    loss_csv = outdir / "loss_history.csv"
 
-    start_epoch, best_val = maybe_load_checkpoint(model, optimizer, last_ckpt)
+    # Write loss CSV header
+    with open(loss_csv, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow([
+            "epoch", "train_loss", "val_loss",
+            "val_mae", "val_rmse",
+            "val_mean_true", "val_mean_pred",
+            "num_train", "num_val",
+        ])
 
-    # ------- Training loop -------
+    best_val = float("inf")
+    no_improve = 0
+
+    # -------- Training --------
     total_epochs = args.epochs
-    loss_log_file = open(loss_log_path, "a")
-
-    for epoch in range(start_epoch + 1, start_epoch + total_epochs + 1):
+    for epoch in range(1, total_epochs + 1):
+        # ----- Train -----
         model.train()
         train_loss_sum = 0.0
 
-        for x, y in train_loader:
+        for batch in train_loader:
+            x, y, _names = batch  # names unused in training
             x = x.to(device, non_blocking=use_cuda)
             y = y.to(device, non_blocking=use_cuda)
 
@@ -188,81 +161,115 @@ def main():
 
         avg_train = train_loss_sum / max(1, len(train_loader))
 
-        # ------- Validation -------
+        # ----- Validation -----
         model.eval()
         val_loss_sum = 0.0
-        preds_list, targets_list = [], []
+        preds_all, trues_all, names_all = [], [], []
+
         with torch.no_grad(), (amp_ctx if use_cuda else nullcontext()):
-            for x, y in val_loader:
+            for x, y, names in val_loader:
                 x = x.to(device, non_blocking=use_cuda)
                 y = y.to(device, non_blocking=use_cuda)
                 out = model(x)
                 if out.ndim > 1 and out.size(-1) == 1:
                     out = out.squeeze(-1)
-                val_loss_sum += criterion(out, y).item()
-                preds_list.append(out.detach().cpu())
-                targets_list.append(y.detach().cpu())
 
+                batch_loss = criterion(out, y).item()
+                val_loss_sum += batch_loss
+
+                preds_all.append(out.detach().cpu())
+                trues_all.append(y.detach().cpu())
+                names_all.extend(list(names))
+
+        import torch as _torch
+        preds = _torch.cat(preds_all).float()
+        trues = _torch.cat(trues_all).float()
+
+        diffs = preds - trues
+        val_mae = diffs.abs().mean().item()
+        val_rmse = (diffs.pow(2).mean().sqrt().item())
         avg_val = val_loss_sum / max(1, len(val_loader))
-        print(f"Epoch {epoch:02d}/{start_epoch + total_epochs} | Train {avg_train:.6f} | Val {avg_val:.6f}")
+        mean_pred = preds.mean().item()
+        mean_true = trues.mean().item()
 
-        # ------- Log metrics -------
-        if args.target_space == "log":
-            preds_linear = torch.exp(torch.cat(preds_list))
-            targets_linear = torch.exp(torch.cat(targets_list))
-        else:
-            preds_linear = torch.cat(preds_list)
-            targets_linear = torch.cat(targets_list)
+        print(
+            f"Epoch {epoch:03d}/{total_epochs} | "
+            f"Train {avg_train:.6f} | Val {avg_val:.6f} | "
+            f"MAE {val_mae:.6f} | RMSE {val_rmse:.6f}"
+        )
 
-        mean_pred = preds_linear.mean().item()
-        mean_true = targets_linear.mean().item()
+        # ----- Append epoch summary to CSV -----
+        with open(loss_csv, "a", newline="") as f:
+            w = csv.writer(f)
+            w.writerow([
+                epoch, f"{avg_train:.6f}", f"{avg_val:.6f}",
+                f"{val_mae:.6f}", f"{val_rmse:.6f}",
+                f"{mean_true:.6f}", f"{mean_pred:.6f}",
+                len(train_set), len(val_set),
+            ])
 
-        loss_log_file.write(f"{epoch},{avg_train:.6f},{avg_val:.6f},{mean_pred:.6f},{mean_true:.6f}\n")
-        loss_log_file.flush()
+        # ----- Write per-sample validation predictions for this epoch -----
+        per_epoch_csv = outdir / f"val_predictions_epoch_{epoch:03d}.csv"
+        with open(per_epoch_csv, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["filename", "true_energy", "pred_energy", "deviation", "squared_error", "abs_error"])
+            for name, t, p in zip(names_all, trues.tolist(), preds.tolist()):
+                dev = p - t
+                w.writerow([name, f"{t:.6f}", f"{p:.6f}", f"{dev:.6f}", f"{dev*dev:.6f}", f"{abs(dev):.6f}"])
 
-        # ------- Checkpointing -------
+        # ----- Checkpointing -----
         meta = {
-            "target_space": args.target_space,
-            "energy_GeV": float(args.energy) if args.energy is not None else "mixed",
-            "spad_size": args.spad,
-            "best_val_loss": float(best_val),
+            "device": "cuda" if use_cuda else "cpu",
+            "epochs": args.epochs,
             "batch_size": args.bs,
             "learning_rate": args.lr,
-            "num_epochs_this_run": args.epochs,
+            "val_split": args.val_split,
             "workers": args.workers,
-            "device": "cuda" if use_cuda else "cpu",
-            "tensor_path": os.path.abspath(args.tensor_path),
             "seed": args.seed,
+            "tensor_path": os.path.abspath(args.tensor_path),
+            "in_channels": in_channels,
+            "dataset_size": len(dataset),
+            "train_size": len(train_set),
+            "val_size": len(val_set),
+            "energies_present": uniq_e,
             "epoch": epoch,
+            "best_val": float(best_val),
         }
-        save_checkpoint(last_ckpt, model, optimizer, epoch, best_val, meta)
 
+        # Save last
+        torch.save(
+            {"model": model.state_dict(), "optim": optimizer.state_dict(), "epoch": epoch, "best_val": best_val, "meta": meta},
+            ckpt_last,
+        )
+
+        # Save best
         if avg_val < best_val:
             best_val = avg_val
             torch.save(model.state_dict(), best_state)
-            save_checkpoint(best_ckpt, model, optimizer, epoch, best_val, meta)
-            print(f"💾 New best (val={best_val:.6f}) saved to {best_ckpt} and {best_state}")
+            torch.save(
+                {"model": model.state_dict(), "optim": optimizer.state_dict(), "epoch": epoch, "best_val": best_val, "meta": meta},
+                ckpt_best,
+            )
+            print(f"💾 New best (val={best_val:.6f}) saved to {ckpt_best} and {best_state}")
+            no_improve = 0
+        else:
+            no_improve += 1
 
-    loss_log_file.close()
+        # Early stopping
+        if args.early_stop > 0 and no_improve >= args.early_stop:
+            print(f"⏹️ Early stopping triggered (patience={args.early_stop}).")
+            break
 
-    # ------- Export TorchScript (optional) -------
-    if args.save_ts:
-        model.eval()
-        C, H, W = dataset.channels, dataset.height, dataset.width
-        example = torch.zeros(1, C, H, W, device=device, dtype=torch.float32)
-        scripted = torch.jit.trace(model, example)
-        ts_path = outdir / "predictor.ts"
-        scripted.save(str(ts_path))
-        print(f"🧠 TorchScript predictor saved to {ts_path}")
-
-    # ------- Save metadata -------
-    meta["best_val_loss"] = float(best_val)
-    meta["best_ckpt"] = str(best_ckpt)
-    meta["best_state_dict"] = str(best_state)
-    meta["last_ckpt"] = str(last_ckpt)
-    with open(meta_path, "w") as f:
-        json.dump(meta, f, indent=2)
-    print(f"✅ Training finished. Best={best_val:.6f}. Artifacts in {outdir}")
+    # -------- Save final metadata --------
+    final_meta = {
+        "device": "cuda" if use_cuda else "cpu",
+        "best_val": float(best_val),
+        "loss_history_csv": str(loss_csv),
+        "tensor_path": os.path.abspath(args.tensor_path),
+        "outdir": str(outdir),
+    }
+    save_json(final_meta, meta_path)
+    print(f"✅ Finished. Artifacts in: {outdir}")
 
 
 if __name__ == "__main__":
