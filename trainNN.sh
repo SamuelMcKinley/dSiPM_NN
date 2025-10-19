@@ -53,8 +53,7 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
 
 
     # Train entire group to model. Args: <folder with tensors> --spad <SPAD Size>
-    python3 -u train.py \${temp_dir}/tensfold \
-    --spad \${SPAD_Size}
+    python3 -u train.py \${temp_dir}/tensfold --epochs 50 --spad \${SPAD_Size} --bs 16
 
 
     # cd \${home_dir}

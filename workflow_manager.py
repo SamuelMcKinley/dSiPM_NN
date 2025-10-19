@@ -21,11 +21,6 @@ def dir_setup():
   os.makedirs(f"{temp_dir}/NNTraining_check", exist_ok=True)
   os.makedirs(f"{temp_dir}/tensfold", exist_ok=True)
 
-def check_event_count(Events_per_energy, group_size):
-  if (Events_per_energy % group_size != 0):
-    print ("Events not divisible by batch size. Please re-run script with acceptable parameters")
-    sys.exit(1)
-
 def initialize_scripts(group_size):
   # Start running scripts
   subprocess.run(["./Simulations.sh", str(group_size)], check=True)
@@ -123,8 +118,11 @@ def Analysis_B(spad_size):
     shutil.rmtree("Training_Outputs")
   os.makedirs("Training_Outputs/")
   print("Making NN analysis plots")
-  subprocess.run(["python3", "-u", "E_pred_plotting.py", str(spad_size), f"NNTraining/{spad_size}_model/NN_model_{spad_size}"], check=True)
-  shutil.move(f"NNTraining/{spad_size}_model/NN_model_{spad_size}/analysis_{spad_size}", f"{Training_Outputs}/")
+  subprocess.run(["python3", "-u", "plot_loss.py", f"NNTraining/{spad_size}_model/NN_model_{spad_size}"], check=True)
+  shutil.move("plots", "Training_Outputs/")
+
+def Analysis_C():
+  subprocess.run(["python3", "-u", "plot_photon_tracking.py"], check=True)
 
 def main():
 
@@ -150,15 +148,13 @@ def main():
 
   dir_setup()
 
-  check_event_count(Events_per_energy, group_size)
-
-  groups = (Events_per_energy * len(energies)) // group_size
-  print(f"{groups} groups total.")
-
   initialize_scripts(group_size)
 
   energies = np.arange(energy_min, energy_max + energy_step, energy_step)
   specific_group_size = group_size // len(energies)
+
+  groups = (Events_per_energy * len(energies)) // group_size
+  print(f"{groups} groups total.")
 
   expanded_energies = np.repeat(energies, specific_group_size)
 
@@ -197,6 +193,7 @@ def main():
         Analysis_A(group_size)
 
     Analysis_B(spad_size)
+  Analysis_C()
 
 
 if __name__ == "__main__":
