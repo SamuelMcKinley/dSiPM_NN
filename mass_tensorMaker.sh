@@ -42,8 +42,24 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
   else
     echo "Found start_tensorMaker_${i}.txt"
 
-    # Copy over variables: ${particle}, ${energy}, ${group}, ${SPAD_Size}
-    . start_tensorMaker_${i}.txt
+    # Wait until the communication file is ready and populated
+    while true; do
+      if [ -s "start_tensorMaker_${i}.txt" ]; then
+        . start_tensorMaker_${i}.txt
+        echo "✅ Loaded variables: particle=${particle}, energy=${energy}, group=${group}, SPAD_Size=${SPAD_Size}"
+        break
+      else
+        echo "⏳ Waiting for start_tensorMaker_${i}.txt to be ready..."
+        sleep 2
+      fi
+    done
+
+    # Now that variables are sourced, wait for the ROOT file
+    root_file="mc_Simulation_run0_${i}_Test_1evt_${particle}_${energy}_${energy}.root"
+    while [ ! -s "$root_file" ]; do
+      echo "⏳ Waiting for $root_file to be written..."
+      sleep 3
+    done
 
     # Make time slices of xy projected photon tensors from the .root simulation files. Args: <simulation file> <energy> <output tensor folder name> <SPAD Size>
     python3 -u \${home_dir}/tensorMaker.py \
