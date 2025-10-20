@@ -1,6 +1,7 @@
-jobs
-output*
+batch_jobs
 NNTraining/*0_model
 Training_Outputs
 *.json
 LOGDIR/*
+*.csv
+machinefile*
