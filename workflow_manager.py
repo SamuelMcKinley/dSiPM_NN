@@ -119,7 +119,7 @@ def Analysis_B(spad_size):
   os.makedirs("Training_Outputs/")
   print("Making NN analysis plots")
   subprocess.run(["python3", "-u", "plot_loss.py", f"NNTraining/{spad_size}_model/NN_model_{spad_size}"], check=True)
-  shutil.move("plots", "Training_Outputs/")
+  shutil.move("plots", f"Training_Outputs/plots_{spad_size}")
 
 def Analysis_C():
   subprocess.run(["python3", "-u", "plot_photon_tracking.py"], check=True)
