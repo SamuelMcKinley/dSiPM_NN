@@ -139,13 +139,11 @@ def main():
                 ix = np.clip(ix, 0, sipm.nBins - 1)
                 iy = np.clip(iy, 0, sipm.nBins - 1)
 
-                active = np.ones((sipm.nBins, sipm.nBins), dtype=bool)
+                # ⚡ Vectorized replacement for the old Python loop
+                pixel_ids = iy * sipm.nBins + ix
+                _, first_indices = np.unique(pixel_ids, return_index=True)
                 accepted = np.zeros_like(t_vals, dtype=bool)
-                for i in range(len(t_vals)):
-                    y_i, x_i = iy[i], ix[i]
-                    if active[y_i, x_i]:
-                        accepted[i] = True
-                        active[y_i, x_i] = False
+                accepted[first_indices] = True
 
                 photons_after = int(np.count_nonzero(accepted))
                 photons_lost = int(len(t_vals) - photons_after)
