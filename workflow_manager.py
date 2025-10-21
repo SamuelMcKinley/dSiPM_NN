@@ -40,7 +40,6 @@ def wait_for_simulation(group_size):
   sim_check_dir = os.path.join(temp_dir, "Simulation_check")
 
   print("Waiting for simulation jobs to finish ...")
-
   while True:
     # Check for all .done communication files
     s_done_files = glob.glob(os.path.join(sim_check_dir, "*.done"))
@@ -68,7 +67,6 @@ def wait_for_tensorMaking(group_size):
   tens_check_dir = os.path.join(temp_dir, "tensorMaking_check")
 
   print("Waiting for tensor making jobs to finish ...")
-
   while True:
     # Check for all .done communication files
     t_done_files = glob.glob(os.path.join(tens_check_dir, "*.done"))
@@ -117,6 +115,9 @@ def Analysis_B(spad_size):
   print("Making NN analysis plots")
   subprocess.run(["python3", "-u", "plot_loss.py", f"NNTraining/{spad_size}_model/NN_model_{spad_size}"], check=True)
   shutil.move("plots", f"Training_Outputs/plots_{spad_size}")
+  subprocess.run(["python3", "-u", "xyt_plotter.py", f"{temp_dir}/tensfold/summed_tensor_{spad_size}_folder/summed_tensor_{spad_size}.npy", f"{spad_size}"])
+  shutil.move(f"{temp_dir}/tensfold/summed_tensor_{spad_size}_folder", "Training_Outputs")
+
 
 def Analysis_C():
   subprocess.run(["python3", "-u", "clean_csv.py"])

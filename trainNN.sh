@@ -12,9 +12,10 @@ gen_script() {
 #SBATCH --ntasks-per-node=1
 #SBATCH -o LOGDIR/%x.%j.out
 #SBATCH -e LOGDIR/%x.%j.err
-#SBATCH -p nocona
-#SBATCH -c 2
-#SBATCH --mem-per-cpu=32G
+#SBATCH -p matador
+#SBATCH -c 8
+#SBATCH --mem=16G
+#SBATCH --gpus-per-node=1
 
 set -euo pipefail
 
@@ -30,14 +31,13 @@ echo "Environment loaded."
 
 cd \${temp_dir}
 
-
 # Loop as long as the master script is running
 while squeue -u "\$USER" | grep -q "batch_wo"; do
 
   # Look for text files used to communicate between batch_workflow.py and trainNN.sh
   # Script will only run when file is found
   if [ ! -f "start_training.txt" ]; then
-    sleep 1
+    sleep 3
   else
     echo "Found start_training.txt"
 
@@ -51,27 +51,15 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
     cp -r current_model/* \${SPAD_Size}_model
     cd \${SPAD_Size}_model
 
-
     # Train entire group to model. Args: <folder with tensors> --spad <SPAD Size>
-    python3 -u train.py \${temp_dir}/tensfold --epochs 50 --spad \${SPAD_Size} --bs 16
+    python3 -u train.py \${temp_dir}/tensfold --epochs 50 --spad \${SPAD_Size} --bs 64 --workers 8
 
 
-    # cd \${home_dir}
+    # Combine tensors
+    cd \${home_dir}
+    python3 -u combine_tensors.py \${temp_dir}/tensfold \${SPAD_Size}
 
-    # Following logic inconsistent with new looping method. Needs change
-
-    # # Moves the already summed tensor from last iteration, so the other tensors can be summed to it as well
-    # if [ -d output_\${SPAD_Size}/summed_tensor_\${energy}_\${SPAD_Size} ]; then
-    #   mv output_\${SPAD_Size}/summed_tensor_\${energy}_\${SPAD_Size}/summed_tensor.npy \${temp_dir}/tensfold/tensor.npy
-    # fi
-
-    # # Sums tensors. Useful for plots
-    # python3 -u combine_tensors.py \${temp_dir}/tensfold summed_tensor_\${energy}_\${SPAD_Size} && echo "combined tensors"
-
-    # mkdir -p output_\${SPAD_Size}
-    # mv \${temp_dir}/tensfold/summed_tensor_\${energy}_\${SPAD_Size} output_\${SPAD_Size}/ && echo "moved tensors"
-
-    rm -rf \${temp_dir}/tensfold/*
+    rm -rf \${temp_dir}/tensfold/*.npy
 
     cd \${temp_dir}
 
