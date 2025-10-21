@@ -75,19 +75,27 @@ def main():
         plt.savefig(os.path.join(output_dir, f"lost_vs_energy_{spad}.png"))
         plt.close()
 
-    # --- Combined comparison across SPADs (Detected) ---
+    # --- Combined comparison across SPADs (Detected + Total) ---
     plt.figure(figsize=(8, 6))
     for spad, vals in data.items():
         energy = vals["energy"]
-        detected = np.array(vals["total"]) - np.array(vals["lost"])
+        total = np.array(vals["total"])
+        lost = np.array(vals["lost"])
+        detected = total - lost
+
+        # solid line = detected
         plt.plot(energy, detected, marker="o", lw=2, label=f"{spad} Detected")
+
+        # dotted line = total photons
+        plt.plot(energy, total, linestyle=":", lw=2, label=f"{spad} Total")
+
     plt.grid(True, linestyle="--", alpha=0.6)
-    plt.title("Detected Photons vs Energy (All SPADs)")
+    plt.title("Detected and Total Photons vs Energy (All SPADs)")
     plt.xlabel("Beam Energy (GeV)")
-    plt.ylabel("Detected Photons")
+    plt.ylabel("Photon Count")
     plt.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, "comparison_detected_all_SPADs.png"))
+    plt.savefig(os.path.join(output_dir, "comparison_detected_total_all_SPADs.png"))
     plt.close()
 
     # --- Combined comparison across SPADs (Lost) ---
