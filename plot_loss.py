@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Visualize training results from loss_history.csv and val_predictions_epoch_###.csv
-without using pandas.
+Visualize training results from loss_history.csv and validation predictions,
+supporting both per-epoch CSVs (val_predictions_epoch_###.csv)
+and combined val_predictions_all_epochs.csv.
 """
 
 import os
@@ -49,7 +50,7 @@ def linear_regression(x, y):
 def main():
     import argparse
     ap = argparse.ArgumentParser(description="Plot training results without pandas.")
-    ap.add_argument("folder", help="Folder containing loss_history.csv and val_predictions_epoch_###.csv")
+    ap.add_argument("folder", help="Folder containing loss_history.csv and prediction CSV(s)")
     ap.add_argument("--outdir", default="plots", help="Output directory for plots")
     args = ap.parse_args()
 
@@ -93,7 +94,7 @@ def main():
     # MAE/RMSE vs epoch
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.plot(epochs, mae, 'b-', lw=2, label="MAE")
-    ax.plot(epochs, rmse, 'orange', lw=2, label="RMSE")
+    ax.plot(epochs, rmse, color='orange', lw=2, label="RMSE")
     for n in range(50, int(max(epochs)) + 50, 50):
         ax.axvline(n, color='r', ls='--', lw=0.8, alpha=0.6)
     ax.set_xlabel("Epoch")
@@ -107,18 +108,35 @@ def main():
 
     # ------------------ PREDICTION SCATTER ------------------
     val_files = sorted(glob.glob(str(folder / "val_predictions_epoch_*.csv")))
-    if not val_files:
-        raise FileNotFoundError(f"No val_predictions_epoch_###.csv files found in {folder}")
+    combined_file = folder / "val_predictions_all_epochs.csv"
 
-    # Use last epoch (highest number)
-    epoch_nums = [int(re.search(r"epoch_(\d+)", f).group(1)) for f in val_files]
-    latest_idx = np.argmax(epoch_nums)
-    val_csv = val_files[latest_idx]
-    print(f"Using predictions from {val_csv}")
+    if val_files:
+        # Use last epoch (highest number)
+        epoch_nums = [int(re.search(r"epoch_(\d+)", f).group(1)) for f in val_files]
+        latest_idx = np.argmax(epoch_nums)
+        val_csv = val_files[latest_idx]
+        print(f"Using predictions from {val_csv}")
+        with open(val_csv, "r") as f:
+            reader = csv.DictReader(f)
+            data = list(reader)
+    elif combined_file.exists():
+        print(f"Using predictions from {combined_file}")
+        with open(combined_file, "r") as f:
+            reader = csv.DictReader(f)
+            all_data = list(reader)
 
-    with open(val_csv, "r") as f:
-        reader = csv.DictReader(f)
-        data = list(reader)
+        # Handle combined file (multiple epochs)
+        # Use the last epoch available
+        epoch_col = "epoch" if "epoch" in all_data[0] else None
+        if epoch_col:
+            epochs_in_file = [int(r["epoch"]) for r in all_data if r.get("epoch", "").isdigit()]
+            last_epoch = max(epochs_in_file)
+            data = [r for r in all_data if int(r["epoch"]) == last_epoch]
+            print(f"Extracted last epoch = {last_epoch} ({len(data)} samples)")
+        else:
+            data = all_data  # fallback: use all if no epoch column
+    else:
+        raise FileNotFoundError(f"No validation prediction CSVs found in {folder}")
 
     y_true = np.array([safe_float(r["true_energy"]) for r in data])
     y_pred = np.array([safe_float(r["pred_energy"]) for r in data])

@@ -8,6 +8,8 @@
 #SBATCH -c 2
 #SBATCH --mem-per-cpu=32G
 
+set -euo pipefail
+
 # Load environment needed for python imports
 echo "Loading environment ..."
 export PATH=~/miniconda3/envs/base/bin:$PATH
@@ -28,8 +30,25 @@ while squeue -u "$USER" | grep -q "batch_wo"; do
   else
     echo "Found start_tensorMaker_7.txt"
 
-    # Copy over variables: , , , 
-    . start_tensorMaker_7.txt
+    # Wait until the communication file is ready and populated
+    while true; do
+      if [ -s "start_tensorMaker_7.txt" ]; then
+        sleep 2
+        . start_tensorMaker_7.txt
+        echo "✅ Loaded variables: particle=${particle}, energy=${energy}, group=${group}, SPAD_Size=${SPAD_Size}"
+        break
+      else
+        echo "⏳ Waiting for start_tensorMaker_7.txt to be ready..."
+        sleep 2
+      fi
+    done
+
+    # Now that variables are sourced, wait for the ROOT file
+    root_file="mc_Simulation_run0_7_Test_1evt_${particle}_${energy}_${energy}.root"
+    while [ ! -s "$root_file" ]; do
+      echo "⏳ Waiting for $root_file to be written..."
+      sleep 3
+    done
 
     # Make time slices of xy projected photon tensors from the .root simulation files. Args: <simulation file> <energy> <output tensor folder name> <SPAD Size>
     python3 -u ${home_dir}/tensorMaker.py     mc_Simulation_run0_7_Test_1evt_${particle}_${energy}_${energy}.root     ${energy}     tensor_${group}_7_${particle}_${energy}     ${SPAD_Size}

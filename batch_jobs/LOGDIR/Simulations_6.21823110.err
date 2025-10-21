@@ -1,4 +1,0 @@
-/var/spool/slurmd/job21823110/slurm_script: line 57: 2357813 Bus error               (core dumped) singularity exec --cleanenv --bind /lustre:/lustre /lustre/work/yofeng/SimulationEnv/alma9forgeant4_sbox/ bash -c "source /workspace/geant4-v11.2.2-install/bin/geant4.sh &&         ${sim_dir}/exampleB4b -b random_6.mac         -jobName Simulation -runNumber 0 -runSeq 6         -numberOfEvents 1 -eventsInNtupe 1         -gun_particle $particle -gun_energy_min $energy -gun_energy_max $energy         -sipmType 1"
-***** COMMAND NOT FOUND </physics_list/list> *****
-
-***** Batch is interrupted!! *****

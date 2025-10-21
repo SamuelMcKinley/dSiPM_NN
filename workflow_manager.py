@@ -114,17 +114,20 @@ def Analysis_A(group_size):
 
 # Analysis B runs once per SPAD Size / model
 def Analysis_B(spad_size):
-  if os.path.exists("Training_Outputs"):
-    shutil.rmtree("Training_Outputs")
-  os.makedirs("Training_Outputs/")
   print("Making NN analysis plots")
   subprocess.run(["python3", "-u", "plot_loss.py", f"NNTraining/{spad_size}_model/NN_model_{spad_size}"], check=True)
   shutil.move("plots", f"Training_Outputs/plots_{spad_size}")
 
 def Analysis_C():
-  subprocess.run(["python3", "-u", "plot_photon_tracking.py"], check=True)
+  subprocess.run(["python3", "-u", "clean_csv.py"])
+  subprocess.run(["python3", "-u", "plot_photon_tracking.py", "photon_tracking_combined.csv"], check=True)
+  shutil.move("photon_tracking_plots", "Training_Outputs/")
 
 def main():
+
+  if os.path.exists("Training_Outputs"):
+    shutil.rmtree("Training_Outputs")
+  os.makedirs("Training_Outputs/")
 
   config_file = sys.argv[1]
 

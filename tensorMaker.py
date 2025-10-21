@@ -1,9 +1,9 @@
 import os
 import sys
+import re
 import numpy as np
 import ROOT
 import csv
-import fcntl  # for safe file locking
 from datetime import datetime
 
 # ---------------- Deadtime Boolean ----------------
@@ -13,6 +13,9 @@ Deadtime = True
 ROOT.gROOT.SetBatch(True)
 ROOT.TH1.SetDefaultSumw2()
 ROOT.TH1.AddDirectory(False)
+
+# ---------------- Script & repo paths ----------------
+SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))  # <— repo path for consistent outputs
 
 # ---------------- Geometry settings ----------------
 xShift = np.array([3.7308, 3.5768, 3.8008, 3.6468])
@@ -54,51 +57,28 @@ def getNBins(l, h, s): return int((h - l) / s)
 
 # ---------------- CSV Updating ----------------
 def update_photon_tracking(spad_size, energy, total_photons, lost_photons):
-    """Append or update photon_tracking.csv cumulatively with locking."""
-    csv_path = "photon_tracking.csv"
+    """
+    Append to a single canonical CSV in the repo directory (SCRIPT_DIR),
+    regardless of where the script is launched from.
+    Each run adds its own line; no overwriting.
+    """
+    csv_path = os.path.join(SCRIPT_DIR, "photon_tracking.csv")
+    header = ["SPAD_Size", "Energy", "Total_Photons", "Lost_Photons"]
 
-    # Create new file if missing
-    if not os.path.exists(csv_path):
-        with open(csv_path, "w", newline="") as f:
-            csv.writer(f).writerow(["SPAD_Size", "Energy", "Total_Photons", "Lost_Photons"])
-        print("📁 Created new photon_tracking.csv")
+    # Create new file if missing, then append
+    new_file = not os.path.exists(csv_path)
+    with open(csv_path, "a", newline="") as f:
+        writer = csv.writer(f)
+        if new_file:
+            writer.writerow(header)
+        writer.writerow([
+            spad_size,
+            f"{float(energy):g}",
+            str(int(total_photons)),
+            str(int(lost_photons))
+        ])
 
-    with open(csv_path, "r+", newline="") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        reader = csv.reader(f)
-        data = list(reader)
-
-        # Validate header
-        if not data or data[0] != ["SPAD_Size", "Energy", "Total_Photons", "Lost_Photons"]:
-            data = [["SPAD_Size", "Energy", "Total_Photons", "Lost_Photons"]]
-
-        matching_rows = [r for r in data[1:] if len(r) >= 2 and r[0] == spad_size and r[1] == str(energy)]
-        print(f"🔍 Before update: found {len(matching_rows)} existing rows for {spad_size}, {energy} GeV")
-
-        updated = False
-        for row in data[1:]:
-            if len(row) < 4: 
-                continue
-            try:
-                if row[0] == spad_size and float(row[1]) == float(energy):
-                    old_total, old_lost = int(row[2]), int(row[3])
-                    row[2] = str(old_total + int(total_photons))
-                    row[3] = str(old_lost + int(lost_photons))
-                    print(f"✏️  Updated existing entry: total {old_total}→{row[2]}, lost {old_lost}→{row[3]}")
-                    updated = True
-                    break
-            except ValueError:
-                continue
-
-        if not updated:
-            data.append([spad_size, str(energy), str(int(total_photons)), str(int(lost_photons))])
-            print(f"➕ Added new entry for {spad_size}, {energy} GeV")
-
-        f.seek(0); f.truncate()
-        csv.writer(f).writerows(data)
-        fcntl.flock(f, fcntl.LOCK_UN)
-
-    print(f"📊 photon_tracking.csv updated for {spad_size}, {energy} GeV")
+    print(f"📊 Appended entry to {csv_path} for {spad_size}, {energy} GeV")
 
 # ---------------- Main ----------------
 def main():
@@ -106,7 +86,12 @@ def main():
         print("❌ Usage: python tensorMaker.py <root_file> <energy> <output_folder> <SPAD_size>")
         sys.exit(1)
 
-    input_file_path, energy, output_folder, spad_size = sys.argv[1], float(sys.argv[2]), sys.argv[3], sys.argv[4]
+    input_file_path, energy, output_folder, spad_size = sys.argv[1], float(sys.argv[2]), sys.argv[3], sys.argv[4].strip()
+
+    # Validate SPAD size strictly
+    if not re.match(r"^\d+x\d+$", spad_size):
+        print(f"❌ Invalid SPAD size '{spad_size}'. Expected like '2000x2000'.")
+        sys.exit(1)
 
     try:
         side_length = int(spad_size.split("x")[0])
@@ -139,28 +124,37 @@ def main():
             # Apply spatial corrections
             x_raw = g.pos_final_x + np.take(xShift, g.productionFiber)
             y_raw = g.pos_final_y + np.take(yShift, g.productionFiber)
-            x_shifted, y_shifted = shrink_toward_center_array(x_raw), shrink_toward_center_array(y_raw)
+            x_shifted = shrink_toward_center_array(x_raw)
+            y_shifted = shrink_toward_center_array(y_raw)
             mask = (g.isCoreC.astype(bool)) & (g.pos_final_z > 0) & (0.0 < g.time_final) & (g.time_final < 40.0)
-            x_vals, y_vals, t_vals, w_vals = 10*x_shifted[mask], 10*y_shifted[mask], g.time_final[mask], g.w[mask]
+            x_vals = 10 * x_shifted[mask]
+            y_vals = 10 * y_shifted[mask]
+            t_vals = g.time_final[mask]
+            w_vals = g.w[mask]
 
             photons_lost = 0
             if Deadtime:
                 ix = ((x_vals + 80.0) / (160.0 / sipm.nBins)).astype(int)
                 iy = ((y_vals + 80.0) / (160.0 / sipm.nBins)).astype(int)
-                ix, iy = np.clip(ix, 0, sipm.nBins - 1), np.clip(iy, 0, sipm.nBins - 1)
+                ix = np.clip(ix, 0, sipm.nBins - 1)
+                iy = np.clip(iy, 0, sipm.nBins - 1)
 
                 active = np.ones((sipm.nBins, sipm.nBins), dtype=bool)
                 accepted = np.zeros_like(t_vals, dtype=bool)
                 for i in range(len(t_vals)):
-                    x_i, y_i = ix[i], iy[i]
+                    y_i, x_i = iy[i], ix[i]
                     if active[y_i, x_i]:
                         accepted[i] = True
                         active[y_i, x_i] = False
-                photons_after = np.count_nonzero(accepted)
-                photons_lost = len(t_vals) - photons_after
+
+                photons_after = int(np.count_nonzero(accepted))
+                photons_lost = int(len(t_vals) - photons_after)
                 total_lost_cumulative += photons_lost
+
                 print(f"Event {nEvents}: {photons_after} kept, {photons_lost} lost (Deadtime ON)")
-                x_vals, y_vals, t_vals, w_vals = x_vals[accepted], y_vals[accepted], t_vals[accepted], w_vals[accepted]
+                x_vals, y_vals, t_vals, w_vals = (
+                    x_vals[accepted], y_vals[accepted], t_vals[accepted], w_vals[accepted]
+                )
             else:
                 print(f"Event {nEvents}: {len(t_vals)} photons used (Deadtime OFF)")
 
@@ -168,20 +162,24 @@ def main():
             hist_tensor = []
             for t_low, t_high in time_slice_ranges:
                 mask_t = (t_vals >= t_low) & (t_vals < t_high)
-                H, _ = np.histogramdd(np.stack((y_vals[mask_t], x_vals[mask_t]), axis=-1),
-                                      bins=(sipm.nBins, sipm.nBins),
-                                      range=[[-80.0, 80.0], [-80.0, 80.0]],
-                                      weights=w_vals[mask_t])
+                H, _ = np.histogramdd(
+                    np.stack((y_vals[mask_t], x_vals[mask_t]), axis=-1),
+                    bins=(sipm.nBins, sipm.nBins),
+                    range=[[-80.0, 80.0], [-80.0, 80.0]],
+                    weights=w_vals[mask_t]
+                )
                 hist_tensor.append(H.astype(np.float32))
+
             event_tensor = np.stack(hist_tensor, axis=0)
             filename = f"event_{nEvents:04d}_ch{sipm.name}.npy"
             np.save(os.path.join(output_folder, "npy", filename), event_tensor)
             writer.writerow([filename, energy])
 
+    # Append CSV entry (safe)
     update_photon_tracking(spad_size, energy, total_photons_cumulative, total_lost_cumulative)
 
     # --- Meta logging ---
-    meta_path = f"tensor_meta_{spad_size}_{energy:.1f}GeV.txt"
+    meta_path = os.path.join(SCRIPT_DIR, f"tensor_meta_{spad_size}_{energy:.1f}GeV.txt")
     with open(meta_path, "w") as m:
         m.write(f"Run timestamp: {datetime.now()}\n")
         m.write(f"SPAD_Size: {spad_size}\nEnergy: {energy} GeV\n")
