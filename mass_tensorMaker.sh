@@ -87,7 +87,7 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
 done
 
 EOF
-
+    sleep 0.25
     chmod +x "$script_name"
     sbatch "$script_name"
 }

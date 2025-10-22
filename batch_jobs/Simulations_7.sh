@@ -5,6 +5,7 @@
 #SBATCH -o LOGDIR/%x.%j.out
 #SBATCH -e LOGDIR/%x.%j.err
 #SBATCH -p nocona
+#SBATCH --mem=8G
 
 cd ..
 home_dir=$PWD

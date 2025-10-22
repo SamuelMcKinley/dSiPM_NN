@@ -6,18 +6,18 @@ import ROOT
 import csv
 from datetime import datetime
 
-# ---------------- Deadtime Boolean ----------------
+# Deadtime Boolean
 Deadtime = True
 
-# ---------------- ROOT setup ----------------
+# ROOT setup
 ROOT.gROOT.SetBatch(True)
 ROOT.TH1.SetDefaultSumw2()
 ROOT.TH1.AddDirectory(False)
 
-# ---------------- Script & repo paths ----------------
+# Script & repo paths
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))  # <— repo path for consistent outputs
 
-# ---------------- Geometry settings ----------------
+# Geometry settings
 xShift = np.array([3.7308, 3.5768, 3.8008, 3.6468])
 yShift = np.array([-3.7293, -3.6878, -3.6878, -3.6488])
 shrink_rules = [(0.1 + 0.4 * i, round(0.23 * i, 2)) for i in range(40)]
@@ -30,7 +30,7 @@ def shrink_toward_center_array(vals: np.ndarray) -> np.ndarray:
     idx = np.clip(idx, 0, len(shift_amounts) - 1)
     return vals - shift_amounts[idx] * np.sign(vals)
 
-# ---------------- Classes ----------------
+# Classes
 class Photons:
     def __init__(self, event):
         self.time_final = np.array(event.OP_time_final)
@@ -55,7 +55,7 @@ class SiPMInfo:
 
 def getNBins(l, h, s): return int((h - l) / s)
 
-# ---------------- CSV Updating ----------------
+# CSV Updating
 def update_photon_tracking(spad_size, energy, total_photons, lost_photons):
     """
     Append to a single canonical CSV in the repo directory (SCRIPT_DIR),
@@ -78,26 +78,26 @@ def update_photon_tracking(spad_size, energy, total_photons, lost_photons):
             str(int(lost_photons))
         ])
 
-    print(f"📊 Appended entry to {csv_path} for {spad_size}, {energy} GeV")
+    print(f"Appended entry to {csv_path} for {spad_size}, {energy} GeV")
 
-# ---------------- Main ----------------
+
 def main():
     if len(sys.argv) < 5:
-        print("❌ Usage: python tensorMaker.py <root_file> <energy> <output_folder> <SPAD_size>")
+        print("Usage: python tensorMaker.py <root_file> <energy> <output_folder> <SPAD_size>")
         sys.exit(1)
 
     input_file_path, energy, output_folder, spad_size = sys.argv[1], float(sys.argv[2]), sys.argv[3], sys.argv[4].strip()
 
     # Validate SPAD size strictly
     if not re.match(r"^\d+x\d+$", spad_size):
-        print(f"❌ Invalid SPAD size '{spad_size}'. Expected like '2000x2000'.")
+        print(f"Invalid SPAD size '{spad_size}'. Expected like '2000x2000'.")
         sys.exit(1)
 
     try:
         side_length = int(spad_size.split("x")[0])
         spacing = side_length / 1000.0
     except Exception:
-        print(f"❌ Invalid SPAD size format '{spad_size}'. Use '70x70' style.")
+        print(f"Invalid SPAD size format '{spad_size}'. Use '70x70' style.")
         sys.exit(1)
 
     sipm = SiPMInfo(side_length, getNBins(-80.0, 80.0, spacing))
@@ -112,25 +112,29 @@ def main():
 
     with open(csv_path, "a", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        if write_header: writer.writerow(["filename", "energy"])
+        if write_header:
+            writer.writerow(["filename", "energy"])
         time_slice_ranges = [(0, 9), (9, 9.5), (9.5, 10), (10, 15), (15, 40)]
 
         for event in tree:
             nEvents += 1
             g = Photons(event)
-            total_photons_cumulative += g.nPhotons()
-            print(f"📦 Event {nEvents}: {g.nPhotons()} raw photons")
+            print(f"Event {nEvents}: {g.nPhotons()} raw photons")
 
-            # Apply spatial corrections
+            # Apply spatial corrections and detector acceptance mask
             x_raw = g.pos_final_x + np.take(xShift, g.productionFiber)
             y_raw = g.pos_final_y + np.take(yShift, g.productionFiber)
             x_shifted = shrink_toward_center_array(x_raw)
             y_shifted = shrink_toward_center_array(y_raw)
+
             mask = (g.isCoreC.astype(bool)) & (g.pos_final_z > 0) & (0.0 < g.time_final) & (g.time_final < 40.0)
             x_vals = 10 * x_shifted[mask]
             y_vals = 10 * y_shifted[mask]
             t_vals = g.time_final[mask]
             w_vals = g.w[mask]
+
+            # Count only photons that reach detector plane before deadtime
+            total_photons_cumulative += len(x_vals)
 
             photons_lost = 0
             if Deadtime:
@@ -139,7 +143,7 @@ def main():
                 ix = np.clip(ix, 0, sipm.nBins - 1)
                 iy = np.clip(iy, 0, sipm.nBins - 1)
 
-                # ⚡ Vectorized replacement for the old Python loop
+                # Vectorized replacement for the old Python loop
                 pixel_ids = iy * sipm.nBins + ix
                 _, first_indices = np.unique(pixel_ids, return_index=True)
                 accepted = np.zeros_like(t_vals, dtype=bool)
@@ -149,7 +153,7 @@ def main():
                 photons_lost = int(len(t_vals) - photons_after)
                 total_lost_cumulative += photons_lost
 
-                print(f"Event {nEvents}: {photons_after} kept, {photons_lost} lost (Deadtime ON)")
+                print(f"Event {nEvents}: raw={g.nPhotons()}, reach={len(x_vals)}, kept={photons_after}, lost={photons_lost}")
                 x_vals, y_vals, t_vals, w_vals = (
                     x_vals[accepted], y_vals[accepted], t_vals[accepted], w_vals[accepted]
                 )
@@ -173,18 +177,18 @@ def main():
             np.save(os.path.join(output_folder, "npy", filename), event_tensor)
             writer.writerow([filename, energy])
 
-    # Append CSV entry (safe)
+    # Append CSV entry
     update_photon_tracking(spad_size, energy, total_photons_cumulative, total_lost_cumulative)
 
-    # --- Meta logging ---
+    # Meta logging
     meta_path = os.path.join(SCRIPT_DIR, f"tensor_meta_{spad_size}_{energy:.1f}GeV.txt")
     with open(meta_path, "w") as m:
         m.write(f"Run timestamp: {datetime.now()}\n")
         m.write(f"SPAD_Size: {spad_size}\nEnergy: {energy} GeV\n")
         m.write(f"Events processed: {nEvents + 1}\n")
-        m.write(f"Total photons (raw): {total_photons_cumulative}\n")
-        m.write(f"Total photons lost: {total_lost_cumulative}\n")
-    print(f"🧾 Wrote metadata to {meta_path}")
+        m.write(f"Total photons reaching detector: {total_photons_cumulative}\n")
+        m.write(f"Total photons lost (deadtime): {total_lost_cumulative}\n")
+    print(f"Wrote metadata log of most recent event to {meta_path}")
 
 if __name__ == "__main__":
     main()

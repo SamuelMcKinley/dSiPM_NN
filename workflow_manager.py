@@ -20,6 +20,7 @@ def dir_setup():
   os.makedirs(f"{temp_dir}/tensorMaking_check", exist_ok=True)
   os.makedirs(f"{temp_dir}/NNTraining_check", exist_ok=True)
   os.makedirs(f"{temp_dir}/tensfold", exist_ok=True)
+  os.makedirs(f"{home_dir}/batch_jobs/LOGDIR", exist_ok=True)
 
 def initialize_scripts(group_size):
   # Start running scripts
@@ -51,6 +52,14 @@ def wait_for_simulation(group_size):
       print("Simulation jobs finished")
       break
     time.sleep(0.5)
+
+def check_sims():
+  print("Waiting for user response to continue. Make sure all sim files are made, then touch file 'go.txt'")
+  while True:
+    time.sleep(5)
+    if os.path.exists("go.txt"):
+      print("Continuing workflow...")
+      break
 
 def start_tensorMaking(particle, energy, group, spad_size, count):
   print("Starting tensor making")
@@ -144,7 +153,7 @@ def main():
   particle     = config["particle"]
   spad_sizes   = config["spad_sizes"]
 
-  print("\n--- Workflow Parameters ---")
+  print("\nWorkflow Parameters:")
   print(f"Energy: {energy_min} => {energy_max} step {energy_step} GeV")
   print(f"Total events: {Events_per_energy} (group size {group_size})")
   print(f"Particle: {particle}")
@@ -170,12 +179,16 @@ def main():
       np.random.shuffle(expanded_energies)
       
       # Loop GEANT4 Simulations
-
       count = -1
       for energy in expanded_energies:
         count += 1
         start_simulations(particle, energy, count)
       wait_for_simulation(group_size)
+
+      # If it's the first iteration, check that simulations ran properly. Manual check. Comment to turn off.
+      if group == 0:
+        if spad_size == spad_sizes[0]:
+          check_sims()
 
       # Function checks for NN training from previous iteration to be complete
       # Allows NN training overlap with GEANT 4 Sim

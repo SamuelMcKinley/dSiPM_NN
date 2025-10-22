@@ -16,4 +16,4 @@ with open("photon_tracking_combined.csv", "w", newline="") as f:
     for (spad, energy), (tot, lost) in sorted(totals.items()):
         writer.writerow([spad, energy, tot, lost])
 
-print("✅ Combined CSV written to photon_tracking_combined.csv")
+print("Combined CSV written to photon_tracking_combined.csv")

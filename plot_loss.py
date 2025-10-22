@@ -58,7 +58,7 @@ def main():
     outdir = Path(args.outdir)
     outdir.mkdir(exist_ok=True)
 
-    # ------------------ LOSS HISTORY ------------------
+    # Loss history
     loss_csv = folder / "loss_history.csv"
     if not loss_csv.exists():
         raise FileNotFoundError(f"{loss_csv} not found")
@@ -106,7 +106,7 @@ def main():
     fig.savefig(outdir / "mae_rmse_vs_epoch.png", dpi=200)
     plt.close(fig)
 
-    # ------------------ PREDICTION SCATTER ------------------
+    # PREDICTION SCATTER
     val_files = sorted(glob.glob(str(folder / "val_predictions_epoch_*.csv")))
     combined_file = folder / "val_predictions_all_epochs.csv"
 
@@ -142,7 +142,7 @@ def main():
     y_pred = np.array([safe_float(r["pred_energy"]) for r in data])
     dev = y_pred - y_true
 
-    # Linear regression (manual)
+    # Linear regression
     slope, intercept, r2 = linear_regression(y_true, y_pred)
     y_fit = slope * y_true + intercept
 
@@ -173,7 +173,7 @@ def main():
     fig.savefig(outdir / "residuals_vs_true.png", dpi=250)
     plt.close(fig)
 
-    print(f"✅ Plots saved to {outdir.resolve()}")
+    print(f"Plots saved to {outdir.resolve()}")
 
 
 if __name__ == "__main__":

@@ -12,13 +12,13 @@ def parse_args():
     return p.parse_args()
 
 def extract_energy_from_filename(fname):
-    # assumes filenames like loss_history_10.txt or loss_history_mixed.txt
+    # Assumes filenames like loss_history_10.txt or loss_history_mixed.txt
     m = re.search(r"loss_history_(\d+)", fname)
     if m:
         return float(m.group(1))
     else:
-        # fallback for mixed or non-numeric runs
-        print(f"⚠️  Non-numeric energy found in {fname}, treating as 'mixed'")
+        # Fallback for mixed or non-numeric runs
+        print(f"Non-numeric energy found in {fname}, treating as 'mixed'")
         return -1.0  # sentinel value for mixed files
 
 def main():
@@ -59,7 +59,7 @@ def main():
         preds_std.append(std_pred)
         actuals.append(np.mean(E_actual))  # all rows should have same actual, but take mean for safety
 
-        # ---- Histogram plot per energy ----
+        # Histogram plot per energy
         energy_label = f"{energy:.0f} GeV" if energy >= 0 else "Mixed"
 
         plt.figure()
@@ -73,7 +73,7 @@ def main():
         plt.savefig(os.path.join(outdir, f"hist_{spad}_{energy_label.replace(' ', '')}.png"))
         plt.close()
 
-    # ---- E_pred vs E_actual plot ----
+    # E_pred vs E_actual plot
     plt.figure()
     plt.errorbar(actuals, preds_mean, yerr=preds_std, fmt="o", capsize=5, label="Predicted")
     min_e = min(min(actuals), min(preds_mean))
@@ -87,7 +87,7 @@ def main():
     plt.savefig(os.path.join(outdir, f"pred_vs_actual_{spad}.png"))
     plt.close()
 
-    print(f"✅ Analysis complete. Results saved in {outdir}")
+    print(f"Analysis complete. Results saved in {outdir}")
 
 if __name__ == "__main__":
     main()

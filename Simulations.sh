@@ -17,6 +17,7 @@ gen_script() {
 #SBATCH -o LOGDIR/%x.%j.out
 #SBATCH -e LOGDIR/%x.%j.err
 #SBATCH -p nocona
+#SBATCH --mem=8G
 
 cd ..
 home_dir=\$PWD
@@ -71,6 +72,7 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
 done
 EOF
 
+    sleep 0.25
     chmod +x "$script_name"
     sbatch "$script_name"
 }
@@ -80,4 +82,3 @@ gen_script
 echo "trainSim script ${i} initialized"
 
 done
-
