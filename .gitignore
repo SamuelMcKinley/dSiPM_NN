@@ -5,3 +5,4 @@ Training_Outputs
 LOGDIR/*
 *.csv
 machinefile*
+*.txt
