@@ -6,6 +6,9 @@ totals = defaultdict(lambda: [0, 0])  # (Total_Photons, Lost_Photons)
 with open("photon_tracking.csv", newline="") as f:
     reader = csv.DictReader(f)
     for row in reader:
+        # Skip repeated headers
+        if row["Total_Photons"] == "Total_Photons":
+            continue
         key = (row["SPAD_Size"], row["Energy"])
         totals[key][0] += int(row["Total_Photons"])
         totals[key][1] += int(row["Lost_Photons"])
