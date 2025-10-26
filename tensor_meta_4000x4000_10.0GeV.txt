@@ -1,6 +1,0 @@
-Run timestamp: 2025-10-21 22:30:07.090470
-SPAD_Size: 4000x4000
-Energy: 10.0 GeV
-Events processed: 1
-Total photons reaching detector: 871
-Total photons lost (deadtime): 760
