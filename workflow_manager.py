@@ -39,7 +39,6 @@ def start_simulations(particle, energy, count):
 
 def wait_for_simulation(group_size):
   sim_check_dir = os.path.join(temp_dir, "Simulation_check")
-
   print("Waiting for simulation jobs to finish ...")
   while True:
     # Check for all .done communication files
@@ -74,7 +73,6 @@ def start_tensorMaking(particle, energy, group, spad_size, count):
 
 def wait_for_tensorMaking(group_size):
   tens_check_dir = os.path.join(temp_dir, "tensorMaking_check")
-
   print("Waiting for tensor making jobs to finish ...")
   while True:
     # Check for all .done communication files
@@ -99,9 +97,7 @@ def start_NNTraining(spad_size, energy):
 
 def wait_for_NNTraining(group_size):
   NN_check_dir = os.path.join(temp_dir, "NNTraining_check")
-
   print("Waiting for NN training jobs to finish ...")
-
   while True:
     # Check for all .done communication files
     n_done_files = glob.glob(os.path.join(NN_check_dir, "*.done"))
@@ -127,24 +123,22 @@ def Analysis_B(spad_size):
   subprocess.run(["python3", "-u", "xyt_plotter.py", f"{temp_dir}/tensfold/summed_tensor_{spad_size}_folder/summed_tensor_{spad_size}.npy", f"{spad_size}"])
   shutil.move(f"{temp_dir}/tensfold/summed_tensor_{spad_size}_folder", "Training_Outputs")
 
-
+# Analysis C runs only once
 def Analysis_C():
   subprocess.run(["python3", "-u", "clean_csv.py"])
   subprocess.run(["python3", "-u", "plot_photon_tracking.py", "photon_tracking_combined.csv"], check=True)
   shutil.move("photon_tracking_plots", "Training_Outputs/")
 
 def main():
-
   if os.path.exists("Training_Outputs"):
     shutil.rmtree("Training_Outputs")
   os.makedirs("Training_Outputs/")
 
   config_file = sys.argv[1]
-
   with open(config_file, "r") as f:
     config = json.load(f)
 
-  # Pull Parameters from JSON file
+  # Pull Parameters from JSON file ran as argument
   energy_min   = int(config["energy_min"])
   energy_max   = int(config["energy_max"])
   energy_step  = int(config["energy_step"])
@@ -163,12 +157,16 @@ def main():
 
   initialize_scripts(group_size)
 
+  # Define energy array
   energies = np.arange(energy_min, energy_max + energy_step, energy_step)
+
+  # Define number of groups divided by amount of energies
   specific_group_size = group_size // len(energies)
 
   groups = (Events_per_energy * len(energies)) // group_size
   print(f"{groups} groups total.")
 
+  # Expand the array so each element is one event
   expanded_energies = np.repeat(energies, specific_group_size)
 
   # Master loops to run all subprocesses
@@ -185,10 +183,10 @@ def main():
         start_simulations(particle, energy, count)
       wait_for_simulation(group_size)
 
-      # If it's the first iteration, check that simulations ran properly. Manual check. Comment to turn off.
-      if group == 0:
-        if spad_size == spad_sizes[0]:
-          check_sims()
+      # If it's the first iteration, check that simulations ran properly. Simply for debugging
+      #if group == 0:
+        #if spad_size == spad_sizes[0]:
+          #check_sims()
 
       # Function checks for NN training from previous iteration to be complete
       # Allows NN training overlap with GEANT 4 Sim
