@@ -23,6 +23,9 @@ yShift = np.array([-3.7293, -3.6878, -3.6878, -3.6488])
 shrink_rules = [(0.1 + 0.4 * i, round(0.23 * i, 2)) for i in range(40)]
 limits = np.array([rule[0] for rule in shrink_rules])
 shift_amounts = np.array([rule[1] for rule in shrink_rules])
+DET_MIN = -80.0
+DET_MAX =  80.0
+DET_WIDTH = DET_MAX - DET_MIN
 
 def shrink_toward_center_array(vals: np.ndarray) -> np.ndarray:
     abs_vals = np.abs(vals)
@@ -100,7 +103,7 @@ def main():
         print(f"Invalid SPAD size format '{spad_size}'. Use '70x70' style.")
         sys.exit(1)
 
-    sipm = SiPMInfo(side_length, getNBins(-80.0, 80.0, spacing))
+    sipm = SiPMInfo(side_length, getNBins(DET_MIN, DET_MAX, spacing))
     input_file = ROOT.TFile(input_file_path, "READ")
     tree = input_file.Get("tree")
 
@@ -138,8 +141,8 @@ def main():
 
             photons_lost = 0
             if Deadtime:
-                ix = ((x_vals + 80.0) / (160.0 / sipm.nBins)).astype(int)
-                iy = ((y_vals + 80.0) / (160.0 / sipm.nBins)).astype(int)
+                ix = ((x_vals - DET_MIN) / (DET_WIDTH / sipm.nBins)).astype(int)
+                iy = ((y_vals - DET_MIN) / (DET_WIDTH / sipm.nBins)).astype(int)
                 ix = np.clip(ix, 0, sipm.nBins - 1)
                 iy = np.clip(iy, 0, sipm.nBins - 1)
 
@@ -167,7 +170,7 @@ def main():
                 H, _ = np.histogramdd(
                     np.stack((y_vals[mask_t], x_vals[mask_t]), axis=-1),
                     bins=(sipm.nBins, sipm.nBins),
-                    range=[[-80.0, 80.0], [-80.0, 80.0]],
+                    range=[[DET_MIN, DET_MAX], [DET_MIN, DET_MAX]],
                     weights=w_vals[mask_t]
                 )
                 hist_tensor.append(H.astype(np.float32))
