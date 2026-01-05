@@ -17,14 +17,14 @@ ROOT.TH1.AddDirectory(False)
 # Script & repo paths
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))  # <— repo path for consistent outputs
 
-# Geometry settings
+# Adjustable geometry settings 
 xShift = np.array([3.7308, 3.5768, 3.8008, 3.6468])
 yShift = np.array([-3.7293, -3.6878, -3.6878, -3.6488])
 shrink_rules = [(0.1 + 0.4 * i, round(0.23 * i, 2)) for i in range(40)]
 limits = np.array([rule[0] for rule in shrink_rules])
 shift_amounts = np.array([rule[1] for rule in shrink_rules])
-DET_MIN = -80.0
-DET_MAX =  80.0
+DET_MIN = -100.0
+DET_MAX =  100.0
 DET_WIDTH = DET_MAX - DET_MIN
 
 def shrink_toward_center_array(vals: np.ndarray) -> np.ndarray:
@@ -117,6 +117,8 @@ def main():
         writer = csv.writer(csvfile)
         if write_header:
             writer.writerow(["filename", "energy"])
+        
+        # Semi-arbitrary slices chosen to best visualize detector map
         time_slice_ranges = [(0, 9), (9, 9.5), (9.5, 10), (10, 15), (15, 40)]
 
         for event in tree:
@@ -146,7 +148,7 @@ def main():
                 ix = np.clip(ix, 0, sipm.nBins - 1)
                 iy = np.clip(iy, 0, sipm.nBins - 1)
 
-                # Vectorized replacement for the old Python loop
+                # Vectorized
                 pixel_ids = iy * sipm.nBins + ix
                 _, first_indices = np.unique(pixel_ids, return_index=True)
                 accepted = np.zeros_like(t_vals, dtype=bool)

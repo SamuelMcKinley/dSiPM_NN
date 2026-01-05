@@ -8,15 +8,15 @@ def get_custom_colormap(global_max):
     """
     Creates a colormap with white for 0, and a smooth blue-to-yellow gradient for 1 to global_max.
     """
-    n_bins = min(int(global_max), 255)  # Max 255 bins
-    white = np.array([[1.0, 1.0, 1.0, 1.0]])  # white for 0
+    n_bins = min(int(global_max), 255)  
+    white = np.array([[1.0, 1.0, 1.0, 1.0]])  
 
-    # Create gradient: blue → cyan → green → yellow (no red or purple)
+    # Create gradient
     blue_to_yellow = np.column_stack((
-        np.linspace(0.0, 1.0, n_bins),          # R (0 to 1)
-        np.linspace(0.0, 1.0, n_bins),          # G (0 to 1)
-        np.linspace(1.0, 0.0, n_bins),          # B (1 to 0)
-        np.ones(n_bins)                         # Alpha
+        np.linspace(0.0, 1.0, n_bins),          
+        np.linspace(0.0, 1.0, n_bins),          
+        np.linspace(1.0, 0.0, n_bins),          
+        np.ones(n_bins)                         
     ))
 
     colors = np.vstack((white, blue_to_yellow))

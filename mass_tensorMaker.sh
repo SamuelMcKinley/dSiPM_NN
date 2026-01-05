@@ -47,10 +47,10 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
       if [ -s "start_tensorMaker_${i}.txt" ]; then
         sleep 2
         . start_tensorMaker_${i}.txt
-        echo "✅ Loaded variables: particle=\${particle}, energy=\${energy}, group=\${group}, SPAD_Size=\${SPAD_Size}"
+        echo "Loaded variables: particle=\${particle}, energy=\${energy}, group=\${group}, SPAD_Size=\${SPAD_Size}"
         break
       else
-        echo "⏳ Waiting for start_tensorMaker_${i}.txt to be ready..."
+        echo "Waiting for start_tensorMaker_${i}.txt to be ready..."
         sleep 2
       fi
     done
@@ -58,7 +58,7 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
     # Now that variables are sourced, wait for the ROOT file
     root_file="mc_Simulation_run0_${i}_Test_1evt_\${particle}_\${energy}_\${energy}.root"
     while [ ! -s "\$root_file" ]; do
-      echo "⏳ Waiting for \$root_file to be written..."
+      echo "Waiting for \$root_file to be written..."
       sleep 3
     done
 

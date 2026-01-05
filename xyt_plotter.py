@@ -4,19 +4,23 @@ import argparse
 import os
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
+DET_MAX = 100
+DET_MIN = -100
+
+
 def get_custom_colormap(global_max):
     """
     Creates a colormap with white for 0, and a smooth blue-to-yellow gradient for 1 to global_max.
     """
-    n_bins = min(int(global_max), 255)  # Max 255 bins
-    white = np.array([[1.0, 1.0, 1.0, 1.0]])  # white for 0
+    n_bins = min(int(global_max), 255)  
+    white = np.array([[1.0, 1.0, 1.0, 1.0]]) 
 
-    # Create gradient: blue → cyan → green → yellow (no red or purple)
+
     blue_to_yellow = np.column_stack((
-        np.linspace(0.0, 1.0, n_bins),          # R (0 to 1)
-        np.linspace(0.0, 1.0, n_bins),          # G (0 to 1)
-        np.linspace(1.0, 0.0, n_bins),          # B (1 to 0)
-        np.ones(n_bins)                         # Alpha
+        np.linspace(0.0, 1.0, n_bins),         
+        np.linspace(0.0, 1.0, n_bins),         
+        np.linspace(1.0, 0.0, n_bins),      
+        np.ones(n_bins)                     
     ))
 
     colors = np.vstack((white, blue_to_yellow))
@@ -28,8 +32,8 @@ def get_custom_colormap(global_max):
 def plot_slice(hist2d, time_range, spad_size, output_dir, idx, cmap, norm):
     entries = np.sum(hist2d)
     
-    x_extent = [-80, 80]
-    y_extent = [-80, 80]
+    x_extent = [DET_MIN, DET_MAX]
+    y_extent = [DET_MIN, DET_MAX]
 
     y_indices, x_indices = np.meshgrid(np.arange(hist2d.shape[1]), np.arange(hist2d.shape[0]))
     x_centers = np.linspace(x_extent[0], x_extent[1], hist2d.shape[0])
