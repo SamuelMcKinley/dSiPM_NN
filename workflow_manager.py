@@ -39,17 +39,22 @@ def start_simulations(particle, energy, count):
 def wait_for_simulation(group_size):
   sim_check_dir = os.path.join(temp_dir, "Simulation_check")
   print("Waiting for simulation jobs to finish ...")
+  time_counter = 0
   while True:
     # Check for all .done communication files
     s_done_files = glob.glob(os.path.join(sim_check_dir, "*.done"))
     s_done_count = len(s_done_files)
+
+    time_counter += 1
+    if time_counter % 600 == 0:
+      subprocess.run(["python3", "Simulation_Failsafe.py", str(group_size), sim_check_dir], check=True)
 
     if s_done_count == group_size:
       for f in s_done_files:
         os.remove(f)
       print("Simulation jobs finished")
       break
-    time.sleep(0.5)
+    time.sleep(1)
 
 def check_sims():
   print("Waiting for user response to continue. Make sure all sim files are made, then touch file 'go.txt'")
