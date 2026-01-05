@@ -130,8 +130,6 @@ def Analysis_C():
   shutil.move("photon_tracking_plots", "Training_Outputs/")
 
 def main():
-  if os.path.exists("Training_Outputs"):
-    shutil.rmtree("Training_Outputs")
   os.makedirs("Training_Outputs/")
 
   config_file = sys.argv[1]
