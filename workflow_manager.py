@@ -3,7 +3,6 @@ import sys
 import json
 import subprocess
 import numpy as np
-import random
 import shutil
 import glob
 import time
@@ -58,6 +57,7 @@ def check_sims():
     time.sleep(5)
     if os.path.exists("go.txt"):
       print("Continuing workflow...")
+      os.remove("go.txt")
       break
 
 def start_tensorMaking(particle, energy, group, spad_size, count):
