@@ -4,6 +4,7 @@ import re
 import numpy as np
 import ROOT
 import csv
+import fcntl
 from datetime import datetime
 
 # Deadtime Boolean
@@ -17,7 +18,7 @@ ROOT.TH1.AddDirectory(False)
 # Script & repo paths
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))  # <— repo path for consistent outputs
 
-# Adjustable geometry settings 
+# Adjustable geometry settings
 xShift = np.array([3.7308, 3.5768, 3.8008, 3.6468])
 yShift = np.array([-3.7293, -3.6878, -3.6878, -3.6488])
 shrink_rules = [(0.1 + 0.4 * i, round(0.23 * i, 2)) for i in range(40)]
@@ -84,6 +85,33 @@ def update_photon_tracking(spad_size, energy, total_photons, lost_photons):
     print(f"Appended entry to {csv_path} for {spad_size}, {energy} GeV")
 
 
+def append_photon_energy_row(spad_size: str, nPhotons: int, energy: float):
+    """
+    Append (nPhotons, Energy) to a SPAD-specific CSV in SCRIPT_DIR.
+    Safe for parallel runs using an OS-level file lock.
+    """
+    csv_path = os.path.join(SCRIPT_DIR, f"photon_energy_{spad_size}.csv")
+    header = ["nPhotons", "Energy"]
+
+    # Open in append+read mode so we can check size under lock
+    with open(csv_path, "a+", newline="") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try:
+            f.seek(0, os.SEEK_END)
+            is_empty = (f.tell() == 0)
+
+            writer = csv.writer(f)
+            if is_empty:
+                writer.writerow(header)
+
+            writer.writerow([int(nPhotons), float(energy)])
+
+            f.flush()
+            os.fsync(f.fileno())
+        finally:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+
 def main():
     if len(sys.argv) < 5:
         print("Usage: python tensorMaker.py <root_file> <energy> <output_folder> <SPAD_size>")
@@ -117,7 +145,7 @@ def main():
         writer = csv.writer(csvfile)
         if write_header:
             writer.writerow(["filename", "energy"])
-        
+
         # Semi-arbitrary slices chosen to best visualize detector map
         time_slice_ranges = [(0, 9), (9, 9.5), (9.5, 10), (10, 15), (15, 40)]
 
@@ -162,8 +190,14 @@ def main():
                 x_vals, y_vals, t_vals, w_vals = (
                     x_vals[accepted], y_vals[accepted], t_vals[accepted], w_vals[accepted]
                 )
+
+                nPhotons_used = photons_after  # <-- what the detector "keeps" under deadtime
             else:
                 print(f"Event {nEvents}: {len(t_vals)} photons used (Deadtime OFF)")
+                nPhotons_used = int(len(t_vals))
+
+            # Append one training row (safe under parallel runs)
+            append_photon_energy_row(spad_size, nPhotons_used, energy)
 
             # Build 3D histogram tensor
             hist_tensor = []
