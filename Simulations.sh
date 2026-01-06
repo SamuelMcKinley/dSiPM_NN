@@ -39,6 +39,7 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
 
     # Copy over variables: \${particle}, \${energy}
     . start_Simulations_${i}.txt
+    export particle energy sim_dir
 
     echo "Running simulations inside \${sim_dir}"
 
@@ -50,6 +51,8 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
     echo "/random/setSeeds \$seed1 \$seed2" > random_${i}.mac
     cat \${sim_dir}/paramBatch03_single.mac >> random_${i}.mac
 
+    echo "DEBUG: particle='$particle' energy='$energy' sim_dir='$sim_dir'"
+
     # Run GEANT4 simulation from directory parallel to dSiPM_NN
     singularity exec --cleanenv --bind /lustre:/lustre /lustre/work/yofeng/SimulationEnv/alma9forgeant4_sbox/ \
       bash -c "source /workspace/geant4-v11.2.2-install/bin/geant4.sh && \
@@ -58,15 +61,24 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
         -numberOfEvents 1 -eventsInNtupe 1 \\
         -gun_particle \$particle -gun_energy_min \$energy -gun_energy_max \$energy \\
         -sipmType 1"
+    sim_rc=\$?
 
-    echo "Simulation complete (seeds: \$seed1, \$seed2)"
+    if [ \$sim_rc -eq 0 ]; then
+      echo "Simulation complete (seeds: \$seed1, \$seed2)"
 
+      # Remove communication text file only on success
+      rm -rf start_Simulations_${i}.txt
 
-    # Remove communication text file
-    rm -rf start_Simulations_${i}.txt
+      # Communicate success to workflow_manager.py
+      touch Simulation_check/${i}.done
+    else
+      echo "ERROR: Simulation failed with exit code \$sim_rc"
 
-    # Communicate to workflow_manager.py that the simulation is finished
-    touch Simulation_check/${i}.done
+      # Leave start_Simulations_${i}.txt in place for debugging
+      # Communicate failure (so workflow_manager can catch it)
+      touch Simulation_check/${i}.fail
+    fi
+
   fi
 
 done
