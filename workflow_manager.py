@@ -47,7 +47,8 @@ def wait_for_simulation(group_size):
 
     time_counter += 1
     if time_counter % 600 == 0:
-      subprocess.run(["python3", "Simulation_Failsafe.py", str(group_size), sim_check_dir], check=True)
+      subprocess.run(["python3", "Simulation_Failsafe.py",
+        str(group_size), sim_check_dir], check=True)
 
     if s_done_count == group_size:
       for f in s_done_files:
@@ -125,8 +126,14 @@ def Analysis_B(spad_size):
   print("Making NN analysis plots")
   subprocess.run(["python3", "-u", "plot_loss.py", f"NNTraining/{spad_size}_model/NN_model_{spad_size}"], check=True)
   shutil.move("plots", f"Training_Outputs/plots_{spad_size}")
-  subprocess.run(["python3", "-u", "xyt_plotter.py", f"{temp_dir}/tensfold/summed_tensor_{spad_size}_folder/summed_tensor_{spad_size}.npy", f"{spad_size}"])
+  subprocess.run(["python3", "-u", "xyt_plotter.py", 
+    f"{temp_dir}/tensfold/summed_tensor_{spad_size}_folder/summed_tensor_{spad_size}.npy", 
+    f"{spad_size}"])
   shutil.move(f"{temp_dir}/tensfold/summed_tensor_{spad_size}_folder", "Training_Outputs")
+  subprocess.run(["python3", "-u", "plot_residuals_per_energy.py", 
+    f"NNTraining/{spad_size}_model/NN_model_{spad_size}/val_predictions_all_epochs.csv", 
+    "--last", "5"], check=True)
+  shutil.move("residual_plots", f"Training_Outputs/residual_plots_{spad_size}")
 
 # Analysis C runs only once
 def Analysis_C():
