@@ -38,8 +38,10 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
     echo "Found start_Simulations_${i}.txt"
 
     # Copy over variables: \${particle}, \${energy}
-    . start_Simulations_${i}.txt
-    export particle energy sim_dir
+    comm_file="start_Simulations_${i}.txt"
+    dos2unix -q "$comm_file" 2>/dev/null || true
+    . "./$comm_file"
+    export particle energy
 
     echo "Running simulations inside \${sim_dir}"
 
@@ -51,7 +53,8 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
     echo "/random/setSeeds \$seed1 \$seed2" > random_${i}.mac
     cat \${sim_dir}/paramBatch03_single.mac >> random_${i}.mac
 
-    echo "DEBUG: particle='$particle' energy='$energy' sim_dir='$sim_dir'"
+    echo "DEBUG: particle='\$particle' energy='\$energy' sim_dir='\$sim_dir'"
+    ls -l "\${sim_dir}/exampleB4b" || echo "MISSING: \${sim_dir}/exampleB4b"
 
     # Run GEANT4 simulation from directory parallel to dSiPM_NN
     singularity exec --cleanenv --bind /lustre:/lustre /lustre/work/yofeng/SimulationEnv/alma9forgeant4_sbox/ \
