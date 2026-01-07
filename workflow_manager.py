@@ -46,7 +46,7 @@ def wait_for_simulation(group_size):
     s_done_count = len(s_done_files)
 
     time_counter += 1
-    if time_counter % 600 == 0:
+    if time_counter % 1200 == 0:
       subprocess.run(["python3", "Simulation_Failsafe.py",
         str(group_size), sim_check_dir], check=True)
 
@@ -126,18 +126,35 @@ def Analysis_B(spad_size):
   print("Making NN analysis plots")
   subprocess.run(["python3", "-u", "plot_loss.py", f"NNTraining/{spad_size}_model/NN_model_{spad_size}"], check=True)
   shutil.move("plots", f"Training_Outputs/plots_{spad_size}")
+
   subprocess.run(["python3", "-u", "xyt_plotter.py", 
     f"{temp_dir}/tensfold/summed_tensor_{spad_size}_folder/summed_tensor_{spad_size}.npy", 
     f"{spad_size}"], check=True)
   shutil.move(f"{temp_dir}/tensfold/summed_tensor_{spad_size}_folder", "Training_Outputs")
+
   subprocess.run(["python3", "-u", "plot_residuals_per_energy.py", 
     f"NNTraining/{spad_size}_model/NN_model_{spad_size}/val_predictions_all_epochs.csv", 
-    "--last", "5"], check=True)
+    "--last", "50"], check=True)
   shutil.move("residual_plots", f"Training_Outputs/residual_plots_{spad_size}")
+
   print("Running nPhoton NN analysis")
   subprocess.run(["python3", "-u", "NNPhotons/train.py", 
     f"photon_energy_{spad_size}.csv", "--spad", spad_size, 
     "--epochs", "50"], check=True)
+
+  os.makedirs(f"Training_Outputs/NNPhotons_plots_{spad_size}", exist_ok=True)
+  print("Making plots for nPhoton NN analysis")
+  subprocess.run(["python3", "-u", "NNPhotons/plot_loss.py", 
+    f"NN_photons_model_{spad_size}"], check=True)  
+  shutil.move("plots", f"Training_Outputs/NNPhoton_plots_{spad_size}")
+
+  subprocess.run(["python3", "-u", "NNPhotons/plot_residuals_per_energy.py", 
+    f"NN_photons_model_{spad_size}/val_predictions_all_epochs.csv"], check=True)
+  shutil.move("residual_plots", f"Training_Outputs/NNPhoton_plots_{spad_size}")
+
+  subprocess.run(["python3", "-u", "plot_residuals_per_energy.py",
+    f"NNTraining/{spad_size}_model/NN_model_{spad_size}/val_predictions_all_epochs.csv"], check=True)
+  shutil.move("residual_plots", f"Training_Outputs/residual_plots_{spad_size}")
 
 # Analysis C runs only once
 def Analysis_C():
