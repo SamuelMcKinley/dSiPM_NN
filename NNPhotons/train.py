@@ -24,7 +24,7 @@ def parse_args():
     p.add_argument("--val-split", type=float, default=0.30)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--base-dir", default="NN_photons_model", help="Base output directory")
-    p.add_argument("--early-stop", type=int, default=0)
+    p.add_argument("--early-stop", type=int, default=10)
     p.add_argument("--transform", default="log1p", choices=["log1p", "none"])
     p.add_argument("--hidden", default="32,32", help="Hidden sizes, comma-separated (e.g. 64,64,32)")
     p.add_argument("--dropout", type=float, default=0.0)

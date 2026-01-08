@@ -146,7 +146,7 @@ def main():
     fig.savefig(outdir / "residuals_vs_true.png", dpi=250)
     plt.close(fig)
 
-    print(f"✅ Plots saved to {outdir.resolve()}")
+    print(f"Plots saved to {outdir.resolve()}")
 
 if __name__ == "__main__":
     main()

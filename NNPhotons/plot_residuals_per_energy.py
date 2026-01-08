@@ -14,7 +14,7 @@ def main():
     ap.add_argument("--group", default=None)
     ap.add_argument("--last", type=int, default=5)
     ap.add_argument("--bins", type=int, default=40)
-    ap.add_argument("--min-count", type=int, default=20)
+    ap.add_argument("--min-count", type=int, default=1)
     ap.add_argument("--xlim", type=float, default=None)
     args = ap.parse_args()
 

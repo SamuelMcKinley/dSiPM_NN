@@ -38,9 +38,8 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
     echo "Found start_Simulations_${i}.txt"
 
     # Copy over variables: \${particle}, \${energy}
-    comm_file="start_Simulations_${i}.txt"
-    dos2unix -q "$comm_file" 2>/dev/null || true
-    . "./$comm_file"
+    dos2unix -q "start_Simulations_${i}.txt" 2>/dev/null || true
+    . "./start_Simulations_${i}.txt"
     export particle energy
 
     echo "Running simulations inside \${sim_dir}"
@@ -62,7 +61,7 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
         \${sim_dir}/exampleB4b -b random_${i}.mac \\
         -jobName Simulation -runNumber 0 -runSeq ${i} \\
         -numberOfEvents 1 -eventsInNtupe 1 \\
-        -gun_particle \$particle -gun_energy_min \$energy -gun_energy_max \$energy \\
+        -gun_particle "\$particle" -gun_energy_min "\$energy" -gun_energy_max "\$energy" \\
         -sipmType 1"
     sim_rc=\$?
 

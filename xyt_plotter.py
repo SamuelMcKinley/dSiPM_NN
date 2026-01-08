@@ -4,14 +4,13 @@ import argparse
 import os
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
+# Adjustable geometry settings
 DET_MAX = 100
 DET_MIN = -100
 
-
 def get_custom_colormap(global_max):
-    """
-    Creates a colormap with white for 0, and a smooth blue-to-yellow gradient for 1 to global_max.
-    """
+    
+    # Creates colormap with white for 0, and blue-to-yellow gradient for 1 to global_max.
     n_bins = min(int(global_max), 255)  
     white = np.array([[1.0, 1.0, 1.0, 1.0]]) 
 

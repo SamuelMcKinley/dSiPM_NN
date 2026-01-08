@@ -137,20 +137,20 @@ def Analysis_B(spad_size):
     "--last", "50"], check=True)
   shutil.move("residual_plots", f"Training_Outputs/residual_plots_{spad_size}")
 
-  print("Running nPhoton NN analysis")
-  subprocess.run(["python3", "-u", "NNPhotons/train.py", 
-    f"photon_energy_{spad_size}.csv", "--spad", spad_size, 
-    "--epochs", "50"], check=True)
+  # print("Running nPhoton NN analysis")
+  # subprocess.run(["python3", "-u", "NNPhotons/train.py", 
+  #   f"photon_energy_{spad_size}.csv", "--spad", spad_size, 
+  #   "--epochs", "50"], check=True)
 
-  os.makedirs(f"Training_Outputs/NNPhotons_plots_{spad_size}", exist_ok=True)
-  print("Making plots for nPhoton NN analysis")
-  subprocess.run(["python3", "-u", "NNPhotons/plot_loss.py", 
-    f"NN_photons_model_{spad_size}"], check=True)  
-  shutil.move("plots", f"Training_Outputs/NNPhoton_plots_{spad_size}")
+  # os.makedirs(f"Training_Outputs/NNPhotons_plots_{spad_size}", exist_ok=True)
+  # print("Making plots for nPhoton NN analysis")
+  # subprocess.run(["python3", "-u", "NNPhotons/plot_loss.py", 
+  #   f"NN_photons_model_{spad_size}"], check=True)  
+  # shutil.move("plots", f"Training_Outputs/NNPhoton_plots_{spad_size}")
 
-  subprocess.run(["python3", "-u", "NNPhotons/plot_residuals_per_energy.py", 
-    f"NN_photons_model_{spad_size}/val_predictions_all_epochs.csv"], check=True)
-  shutil.move("residual_plots", f"Training_Outputs/NNPhoton_plots_{spad_size}")
+  # subprocess.run(["python3", "-u", "NNPhotons/plot_residuals_per_energy.py", 
+  #   f"NN_photons_model_{spad_size}/val_predictions_all_epochs.csv"], check=True)
+  # shutil.move("residual_plots", f"Training_Outputs/NNPhoton_plots_{spad_size}")
 
   subprocess.run(["python3", "-u", "plot_residuals_per_energy.py",
     f"NNTraining/{spad_size}_model/NN_model_{spad_size}/val_predictions_all_epochs.csv"], check=True)

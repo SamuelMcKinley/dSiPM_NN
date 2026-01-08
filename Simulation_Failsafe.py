@@ -26,7 +26,8 @@ def missing_done_indices(done_files, group_size):
 
 def main():
     if len(done_files) == group_size:
-        print("Error: amount of done files matches group_size. Simulation_Failsafe.py should not have ran.")
+        print("Error: amount of done files matches group_size." 
+            "Simulation_Failsafe.py should not have ran.")
         sys.exit(1)
     else:
         missing = missing_done_indices(done_files, group_size)
@@ -41,7 +42,6 @@ def main():
         subprocess.run(["scancel", "--name", job_name], check=False)
         subprocess.run(["sbatch", script_name], check=True)
         print(f"Restarted event {i}.")
-
 
 if __name__ == "__main__":
     main()
