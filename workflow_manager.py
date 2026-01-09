@@ -157,9 +157,9 @@ def Analysis_B(spad_size):
   shutil.move("residual_plots", f"Training_Outputs/residual_plots_{spad_size}")
 
 # Analysis C runs only once
-def Analysis_C():
+def Analysis_C(Events_per_energy):
   subprocess.run(["python3", "-u", "clean_csv.py"])
-  subprocess.run(["python3", "-u", "plot_photon_tracking.py", "photon_tracking_combined.csv"], check=True)
+  subprocess.run(["python3", "-u", "plot_photon_tracking.py", "photon_tracking_combined.csv", Events_per_energy], check=True)
   shutil.move("photon_tracking_plots", "Training_Outputs/")
 
 def main():
