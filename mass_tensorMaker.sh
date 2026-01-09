@@ -72,7 +72,7 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
     # Delete simulation file
     rm -rf mc_Simulation_run0_${i}_Test_1evt_\${particle}_\${energy}_\${energy}.root
 
-    mv tensor_\${group}_${i}_\${particle}_\${energy}/npy/* tensfold/tensor_${i}_\${particle}_\${energy}_\${group}_\${SPAD_Size}.npy
+    mv tensor_\${group}_${i}_\${particle}_\${energy}/npy/* tensfold/tensor_${i}_\${particle}_\${energy}_\${group}_\${SPAD_Size}.npz
     rm -rf tensor_\${group}_${i}_\${particle}_\${energy}
 
     echo "Tensor making complete for particle \${particle}, \${energy} GeV, group \${group}, SPAD_Size \${SPAD_Size}."

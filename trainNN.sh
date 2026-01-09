@@ -58,7 +58,7 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
     cd \${home_dir}
     python3 -u combine_tensors.py \${temp_dir}/tensfold \${SPAD_Size}
 
-    rm -rf \${temp_dir}/tensfold/*.npy
+    rm -rf \${temp_dir}/tensfold/*.npz
 
     cd \${temp_dir}
 

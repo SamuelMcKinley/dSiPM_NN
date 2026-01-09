@@ -199,6 +199,10 @@ def main():
             # Append one training row (safe under parallel runs)
             append_photon_energy_row(spad_size, nPhotons_used, energy)
 
+            # Normalization scalar (kept after deadtime)
+            denom = float(max(nPhotons_used, 1))
+            lnN = float(np.log(denom))
+
             # Build 3D histogram tensor
             hist_tensor = []
             for t_low, t_high in time_slice_ranges:
@@ -212,8 +216,17 @@ def main():
                 hist_tensor.append(H.astype(np.float32))
 
             event_tensor = np.stack(hist_tensor, axis=0)
-            filename = f"event_{nEvents:04d}_ch{sipm.name}.npy"
-            np.save(os.path.join(output_folder, "npy", filename), event_tensor)
+
+            # ---- Option A: normalize tensor to avoid large values ----
+            event_tensor = (event_tensor / denom).astype(np.float32)
+
+            # Save as .npz: x = normalized tensor, lnN = ln(total kept photons)
+            filename = f"event_{nEvents:04d}_ch{sipm.name}.npz"
+            np.savez(
+                os.path.join(output_folder, "npy", filename),
+                x=event_tensor,
+                lnN=np.float32(lnN),
+            )
             writer.writerow([filename, energy])
 
     # Append CSV entry

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, csv, argparse
+import csv, argparse
 from pathlib import Path
 from typing import List, Tuple, Dict
 import numpy as np
@@ -14,8 +14,8 @@ from model import EnergyRegressionCNN
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Train CNN to predict energy from hit-map tensors (resumable, balanced).")
-    p.add_argument("tensor_path", help="Folder (or single .npy) of tensors")
+    p = argparse.ArgumentParser(description="Train CNN on normalized hit-maps + lnN (resumable, balanced).")
+    p.add_argument("tensor_path", help="Folder (or single .npz) of tensors")
     p.add_argument("--spad", required=True, help="SPAD size label (e.g. 4000x4000)")
     p.add_argument("--group", default=None, help="Optional group label (e.g. G7). If omitted, auto-assigns.")
     p.add_argument("--epochs", type=int, default=50, help="Epochs per run")
@@ -80,8 +80,6 @@ def next_cumulative_epoch(loss_csv: Path) -> int:
 
 def stratified_indices_by_energy(energies: List[float], val_frac: float, seed: int) -> Tuple[List[int], List[int]]:
     energies = np.asarray(energies, dtype=np.float32)
-
-    # Important: avoid float-equality surprises
     energies = np.round(energies, 6)
 
     uniq = sorted(set(energies.tolist()))
@@ -103,21 +101,29 @@ def stratified_indices_by_energy(energies: List[float], val_frac: float, seed: i
     return tr, va
 
 
-def compute_target_norm(train_targets: torch.Tensor) -> Tuple[float, float]:
-    mu = float(train_targets.mean().item())
-    sigma = float(train_targets.std().item())
+# -------------------- log-energy helpers --------------------
+
+def safe_log_energy(y: torch.Tensor) -> torch.Tensor:
+    return torch.log(torch.clamp(y, min=1e-12))
+
+
+def compute_target_norm(train_targets_log: torch.Tensor) -> Tuple[float, float]:
+    mu = float(train_targets_log.mean().item())
+    sigma = float(train_targets_log.std().item())
     if sigma <= 0:
         sigma = 1.0
     return mu, sigma
 
 
-def normalize_targets(y: torch.Tensor, mu: float, sigma: float) -> torch.Tensor:
-    return (y - mu) / sigma
+def normalize_targets(y_log: torch.Tensor, mu: float, sigma: float) -> torch.Tensor:
+    return (y_log - mu) / sigma
 
 
 def denormalize_targets(y_norm: torch.Tensor, mu: float, sigma: float) -> torch.Tensor:
     return y_norm * sigma + mu
 
+
+# -------------------- main --------------------
 
 def main():
     args = parse_args()
@@ -136,13 +142,13 @@ def main():
             csv.writer(f).writerow([
                 "group","epoch","train_loss","val_loss","val_mae","val_rmse",
                 "val_mean_true","val_mean_pred","num_train","num_val",
-                "mu_train","sigma_train","best_val_at_save"
+                "mu_logE","sigma_logE","best_val_at_save"
             ])
 
     if not val_csv.exists():
         with open(val_csv, "w", newline="") as f:
             csv.writer(f).writerow([
-                "group","epoch","filename","true_energy","pred_energy",
+                "group","epoch","filename","lnN","true_energy","pred_energy",
                 "deviation","squared_error","abs_error"
             ])
 
@@ -192,65 +198,66 @@ def main():
 
     best_latest_ckpt = outdir / "best_latest.ckpt"
     best_latest_pth  = outdir / "best_latest.pth"
+    last_ckpt        = outdir / "last.ckpt"
 
-    # ---- Resume state (CRITICAL FIXES) ----
+    # ---- Resume state (IMPORTANT: resume from last.ckpt if it exists) ----
     best_val = float("inf")
-    mu_train = None
-    sigma_train = None
+    mu_logE = None
+    sigma_logE = None
 
-    if best_latest_ckpt.exists():
-        print(f"Resuming from {best_latest_ckpt}")
-        ckpt = torch.load(best_latest_ckpt, map_location="cpu")
+    resume_path = last_ckpt if last_ckpt.exists() else best_latest_ckpt
+    if resume_path.exists():
+        print(f"Resuming from {resume_path}")
+        ckpt = torch.load(resume_path, map_location="cpu")
         model.load_state_dict(ckpt["model"])
-
         try:
             optimizer.load_state_dict(ckpt["optim"])
         except Exception:
             pass
-
         best_val = float(ckpt.get("best_val", best_val))
-
-        mu_train = ckpt.get("mu_train", None)
-        sigma_train = ckpt.get("sigma_train", None)
-
-        if mu_train is None or sigma_train is None:
-            print("WARNING: checkpoint missing mu/sigma; will recompute once (not ideal).")
-
+        mu_logE = ckpt.get("mu_logE", None)
+        sigma_logE = ckpt.get("sigma_logE", None)
+        if mu_logE is None or sigma_logE is None:
+            print("WARNING: checkpoint missing mu/sigma for logE; will recompute once (not ideal).")
     else:
         print("No prior checkpoint — starting fresh weights.")
 
-    # ---- Compute mu/sigma ONLY if we don't have them from ckpt ----
-    if mu_train is None or sigma_train is None:
-        train_targets_list = []
+    # ---- Compute mu/sigma (logE) ONLY if missing ----
+    if mu_logE is None or sigma_logE is None:
+        train_targets_log_list = []
         with torch.no_grad():
-            for _, y, _ in DataLoader(train_set, batch_size=512, shuffle=False, num_workers=0):
-                train_targets_list.append(y)
-        train_targets = torch.cat(train_targets_list).float()
-        mu_train, sigma_train = compute_target_norm(train_targets)
+            for _x, _lnN, y, _name in DataLoader(train_set, batch_size=512, shuffle=False, num_workers=0):
+                y_log = safe_log_energy(y.float())
+                train_targets_log_list.append(y_log)
+        train_targets_log = torch.cat(train_targets_log_list).float()
+        mu_logE, sigma_logE = compute_target_norm(train_targets_log)
 
-    mu_train = float(mu_train)
-    sigma_train = float(sigma_train)
-    print(f"[{group}] Target normalization (fixed across resumes): mu={mu_train:.6f}, sigma={sigma_train:.6f}")
-    print(f"[{group}] Loaded best_val from checkpoint: {best_val:.6f}" if best_latest_ckpt.exists() else "")
+    mu_logE = float(mu_logE)
+    sigma_logE = float(sigma_logE)
+    print(f"[{group}] Target normalization (fixed across resumes): mu_logE={mu_logE:.6f}, sigma_logE={sigma_logE:.6f}")
+    if resume_path.exists():
+        print(f"[{group}] Loaded best_val from checkpoint: {best_val:.6f}")
 
     no_improve = 0
     cur_epoch = start_epoch
 
     for _ in range(args.epochs):
-        # ---- Train ----
+        # ---- Train (loss in log space) ----
         model.train()
         train_loss_sum = 0.0
 
-        for x, y, _ in train_loader:
+        for x, lnN, y, _name in train_loader:
             x = x.to(dev, non_blocking=use_cuda)
+            lnN = lnN.to(dev, non_blocking=use_cuda)
             y = y.to(dev, non_blocking=use_cuda)
 
-            y_norm = normalize_targets(y, mu_train, sigma_train)
+            y_log = safe_log_energy(y)
+            y_log_norm = normalize_targets(y_log, mu_logE, sigma_logE)
 
             optimizer.zero_grad(set_to_none=True)
             with amp_ctx:
-                out_norm = model(x).squeeze(-1)
-                loss = criterion(out_norm, y_norm)
+                out_log_norm = model(x, lnN)
+                loss = criterion(out_log_norm, y_log_norm)
 
             if use_cuda:
                 scaler.scale(loss).backward()
@@ -264,33 +271,40 @@ def main():
 
         avg_train = train_loss_sum / max(1, len(train_loader))
 
-        # ---- Validate ----
+        # ---- Validate (val_loss in log space; metrics logged in linear space) ----
         model.eval()
         val_loss_sum = 0.0
-        preds_denorm, trues_denorm, names_all = [], [], []
+        preds_linear, trues_linear, names_all, lnN_all = [], [], [], []
 
         with torch.no_grad(), (amp_ctx if use_cuda else nullcontext()):
-            for x, y, names in val_loader:
+            for x, lnN, y, names in val_loader:
                 x = x.to(dev, non_blocking=use_cuda)
+                lnN = lnN.to(dev, non_blocking=use_cuda)
                 y = y.to(dev, non_blocking=use_cuda)
 
-                out_norm = model(x).squeeze(-1)
-                y_norm = normalize_targets(y, mu_train, sigma_train)
-                val_loss_sum += criterion(out_norm, y_norm).item()
+                y_log = safe_log_energy(y)
+                y_log_norm = normalize_targets(y_log, mu_logE, sigma_logE)
 
-                out_denorm = denormalize_targets(out_norm, mu_train, sigma_train)
+                out_log_norm = model(x, lnN)
+                val_loss_sum += criterion(out_log_norm, y_log_norm).item()
 
-                preds_denorm.append(out_denorm.detach().cpu())
-                trues_denorm.append(y.detach().cpu())
+                out_log = denormalize_targets(out_log_norm, mu_logE, sigma_logE)
+                out_linear = torch.exp(out_log)
+
+                preds_linear.append(out_linear.detach().cpu())
+                trues_linear.append(y.detach().cpu())
+
+                lnN_all.extend(lnN.detach().cpu().float().view(-1).tolist())
                 names_all.extend(list(names))
 
-        preds = torch.cat(preds_denorm).float()
-        trues = torch.cat(trues_denorm).float()
+        preds = torch.cat(preds_linear).float()
+        trues = torch.cat(trues_linear).float()
 
         diffs = preds - trues
-        val_mae = float(diffs.abs().mean().item())                       # GeV
-        val_rmse = float(diffs.pow(2).mean().sqrt().item())              # GeV
-        avg_val = val_loss_sum / max(1, len(val_loader))                 # normalized MSE
+        val_mae = float(diffs.abs().mean().item())
+        val_rmse = float(diffs.pow(2).mean().sqrt().item())
+
+        avg_val = val_loss_sum / max(1, len(val_loader))
         mean_true = float(trues.mean().item())
         mean_pred = float(preds.mean().item())
 
@@ -304,23 +318,23 @@ def main():
                 f"{val_mae:.6f}", f"{val_rmse:.6f}",
                 f"{mean_true:.6f}", f"{mean_pred:.6f}",
                 len(train_set), len(val_set),
-                f"{mu_train:.6f}", f"{sigma_train:.6f}",
+                f"{mu_logE:.6f}", f"{sigma_logE:.6f}",
                 f"{best_val:.6f}"
             ])
 
         with open(val_csv, "a", newline="") as f:
             w = csv.writer(f)
-            for name, t, p in zip(names_all, trues.tolist(), preds.tolist()):
+            for name, lnNv, t, p in zip(names_all, lnN_all, trues.tolist(), preds.tolist()):
                 d = p - t
                 w.writerow([
-                    group, cur_epoch, name,
+                    group, cur_epoch, name, f"{lnNv:.6f}",
                     f"{t:.6f}", f"{p:.6f}", f"{d:.6f}",
                     f"{(d*d):.6f}", f"{abs(d):.6f}"
                 ])
 
         scheduler.step(avg_val)
 
-        # ---- Save ONLY if truly improved (CRITICAL FIX) ----
+        # ---- Save BEST only if improved ----
         if avg_val < best_val:
             best_val = avg_val
             torch.save(
@@ -328,8 +342,8 @@ def main():
                     "model": model.state_dict(),
                     "optim": optimizer.state_dict(),
                     "best_val": best_val,
-                    "mu_train": mu_train,
-                    "sigma_train": sigma_train,
+                    "mu_logE": mu_logE,
+                    "sigma_logE": sigma_logE,
                 },
                 best_latest_ckpt
             )
@@ -339,6 +353,18 @@ def main():
             no_improve = 0
         else:
             no_improve += 1
+
+        # ---- ALWAYS save LAST so cumulative training actually persists ----
+        torch.save(
+            {
+                "model": model.state_dict(),
+                "optim": optimizer.state_dict(),
+                "best_val": best_val,
+                "mu_logE": mu_logE,
+                "sigma_logE": sigma_logE,
+            },
+            last_ckpt
+        )
 
         if args.early_stop > 0 and no_improve >= args.early_stop:
             print(f"[{group}] Early stopping (patience={args.early_stop})")

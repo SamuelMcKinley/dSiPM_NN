@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-import os
 import re
 from pathlib import Path
-from typing import List, Tuple, Optional, Dict, Any
+from typing import List, Tuple
 
 import numpy as np
 import torch
@@ -15,7 +14,7 @@ FNAME_RE = re.compile(
         (?P<energy>[\d.]+)_ # energy in GeV (float ok)
         (?P<group>[^_]+)_
         (?P<spad>[^_]+)     # SPAD label, e.g., 4000x4000
-        \.npy$""",
+        \.npz$""",
     re.VERBOSE,
 )
 
@@ -37,69 +36,70 @@ def _to_chw(arr: np.ndarray) -> np.ndarray:
     if arr.ndim == 2:
         return arr[np.newaxis, ...]
     if arr.ndim == 3:
-        # If last dim looks like channels, move it to first
         if arr.shape[-1] <= 16 and arr.shape[0] != arr.shape[-1]:
             return np.transpose(arr, (2, 0, 1))
-        # Already (C,H,W)
         return arr
     raise ValueError(f"Unsupported tensor shape {arr.shape}; expected 2D or 3D")
 
 
 class PhotonEnergyDataset(Dataset):
     """
-    Loads tensors from a folder (or a single .npy file) and predicts linear energy.
-    Energies are extracted from filenames:
-      tensor_{i}_{particle}_{energy}_{group}_{spad}.npy
+    Loads tensors and lnN from:
+      tensor_{i}_{particle}_{energy}_{group}_{spad}.npz
+
+    In .npz:
+      - x   : normalized tensor (C,H,W) float32 (already divided by denom)
+      - lnN : float32 (ln of total kept photons)
     """
 
-    def __init__(
-        self,
-        tensor_path: str,
-        mmap: bool = True,
-        dtype: np.dtype = np.float32,
-    ):
+    def __init__(self, tensor_path: str, dtype: np.dtype = np.float32):
         path = Path(tensor_path)
-        if path.is_file() and path.suffix.lower() == ".npy":
+
+        if path.is_file() and path.suffix.lower() == ".npz":
             self.files = [path]
         elif path.is_dir():
-            # DO NOT sort (preserve "random" input order as requested)
-            self.files = [p for p in path.iterdir() if p.suffix.lower() == ".npy"]
+            # only .npz
+            self.files = [p for p in path.iterdir() if p.suffix.lower() == ".npz"]
         else:
-            raise FileNotFoundError(f"tensor_path not found or not a .npy: {tensor_path}")
+            raise FileNotFoundError(f"tensor_path not found or not a .npz: {tensor_path}")
 
         if len(self.files) == 0:
-            raise RuntimeError(f"No .npy files found in {tensor_path}")
+            raise RuntimeError(f"No .npz files found in {tensor_path}")
 
-        self.mmap = mmap
         self.dtype = dtype
 
-        # Peek first file to infer shape/channels
-        arr0 = np.load(self.files[0], mmap_mode="r" if mmap else None)
-        arr0 = _to_chw(np.asarray(arr0, dtype=self.dtype))
+        # Peek first file to infer channels/shape (C,H,W)
+        p0 = self.files[0]
+        with np.load(p0, allow_pickle=False) as z:
+            arr0 = np.asarray(z["x"], dtype=self.dtype)
+        arr0 = _to_chw(arr0)
         self.channels, self.height, self.width = arr0.shape
 
-        # Pre-extract energies and keep names
+        # Pre-extract energies and names
         self._energies: List[float] = []
         self._names: List[str] = []
         for p in self.files:
-            e = _parse_energy_from_name(p)
-            self._energies.append(e)
+            self._energies.append(_parse_energy_from_name(p))
             self._names.append(p.name)
 
     def __len__(self) -> int:
         return len(self.files)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, str]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, str]:
         p = self.files[idx]
         e = self._energies[idx]
         name = self._names[idx]
 
-        arr = np.load(p, mmap_mode="r" if self.mmap else None).astype(self.dtype, copy=False)
-        arr = _to_chw(arr)  # (C,H,W)
-        x = torch.from_numpy(arr)  # float32
-        y = torch.tensor(e, dtype=torch.float32)  # linear energy target
+        with np.load(p, allow_pickle=False) as z:
+            arr = np.asarray(z["x"], dtype=self.dtype)
+            lnN = np.asarray(z["lnN"], dtype=np.float32).reshape(1)  # (1,)
 
-        return x, y, name
+        arr = _to_chw(arr)
+        x = torch.from_numpy(arr)                 # (C,H,W) float32
+        lnN_t = torch.from_numpy(lnN)             # (1,) float32
+        y = torch.tensor(e, dtype=torch.float32)  # scalar (linear energy in GeV)
+
+        return x, lnN_t, y, name
 
     def get_all_energies(self) -> List[float]:
         return list(self._energies)
