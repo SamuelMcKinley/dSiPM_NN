@@ -6,12 +6,27 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 def main():
-    # Parse command line argument
+    # Parse command line arguments
+    # Usage:
+    #   python plot_photon_tracking.py photon_tracking.csv
+    #   python plot_photon_tracking.py photon_tracking.csv 500
     if len(sys.argv) < 2:
-        print("Usage: python plot_photon_tracking.py <input_csv>")
+        print("Usage: python plot_photon_tracking.py <input_csv> [events_per_energy]")
         sys.exit(1)
 
     input_csv = sys.argv[1]
+
+    # If provided, this should be EVENTS PER ENERGY (e.g., 500)
+    events_per_energy = None
+    if len(sys.argv) >= 3:
+        try:
+            events_per_energy = float(sys.argv[2])
+            if events_per_energy <= 0:
+                raise ValueError
+        except Exception:
+            print("Error: events_per_energy must be a positive number (e.g., 500).")
+            sys.exit(1)
+
     output_dir = "photon_tracking_plots"
     os.makedirs(output_dir, exist_ok=True)
 
@@ -28,20 +43,28 @@ def main():
         for row in reader:
             spad = row["SPAD_Size"]
             energy = float(row["Energy"])
-            total = int(row["Total_Photons"])
-            lost = int(row["Lost_Photons"])
+            total = float(row["Total_Photons"])
+            lost = float(row["Lost_Photons"])
+
+            # ---- ONLY CHANGE: divide by events_per_energy if provided ----
+            if events_per_energy is not None:
+                total /= events_per_energy
+                lost  /= events_per_energy
 
             data[spad]["energy"].append(energy)
             data[spad]["total"].append(total)
             data[spad]["lost"].append(lost)
 
-    # Sort by energy for each SPAD 
+    # Sort by energy for each SPAD
     for spad in data.keys():
         order = np.argsort(data[spad]["energy"])
         for key in ["energy", "total", "lost"]:
             data[spad][key] = np.array(data[spad][key])[order]
 
-    # Plot Detected Photons vs Energy 
+    y_suffix = " per Event" if events_per_energy is not None else ""
+    y_units  = " (Photons/Event)" if events_per_energy is not None else ""
+
+    # Plot Detected Photons vs Energy
     for spad, vals in data.items():
         energy = vals["energy"]
         total = vals["total"]
@@ -51,15 +74,15 @@ def main():
         plt.figure(figsize=(7, 5))
         plt.plot(energy, detected, "o-", lw=2, label="Detected Photons")
         plt.grid(True, linestyle="--", alpha=0.6)
-        plt.title(f"Detected Photons vs Energy ({spad})")
+        plt.title(f"Detected Photons{y_suffix} vs Energy ({spad})")
         plt.xlabel("Beam Energy (GeV)")
-        plt.ylabel("Detected Photons (Total - Lost)")
+        plt.ylabel(f"Detected Photons (Total - Lost){y_units}")
         plt.legend()
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f"detected_vs_energy_{spad}.png"))
         plt.close()
 
-    # Plot Lost Photons vs Energy 
+    # Plot Lost Photons vs Energy
     for spad, vals in data.items():
         energy = vals["energy"]
         lost = vals["lost"]
@@ -67,15 +90,15 @@ def main():
         plt.figure(figsize=(7, 5))
         plt.plot(energy, lost, "s--", lw=2, color="orange", label="Lost Photons")
         plt.grid(True, linestyle="--", alpha=0.6)
-        plt.title(f"Lost Photons vs Energy ({spad})")
+        plt.title(f"Lost Photons{y_suffix} vs Energy ({spad})")
         plt.xlabel("Beam Energy (GeV)")
-        plt.ylabel("Lost Photons")
+        plt.ylabel(f"Lost Photons{y_units}")
         plt.legend()
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f"lost_vs_energy_{spad}.png"))
         plt.close()
 
-    # Combined comparison across SPADs (Detected + Total) 
+    # Combined comparison across SPADs (Detected + Total)
     plt.figure(figsize=(8, 6))
     for spad, vals in data.items():
         energy = vals["energy"]
@@ -90,23 +113,23 @@ def main():
         plt.plot(energy, total, linestyle=":", lw=2, label=f"{spad} Total")
 
     plt.grid(True, linestyle="--", alpha=0.6)
-    plt.title("Detected and Total Photons vs Energy (All SPADs)")
+    plt.title(f"Detected and Total Photons{y_suffix} vs Energy (All SPADs)")
     plt.xlabel("Beam Energy (GeV)")
-    plt.ylabel("Photon Count")
+    plt.ylabel(f"Photon Count{y_units}")
     plt.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "comparison_detected_total_all_SPADs.png"))
     plt.close()
 
-    # Combined comparison across SPADs (Lost) 
+    # Combined comparison across SPADs (Lost)
     plt.figure(figsize=(8, 6))
     for spad, vals in data.items():
         energy = vals["energy"]
         plt.plot(energy, vals["lost"], marker="s", lw=2, label=f"{spad} Lost")
     plt.grid(True, linestyle="--", alpha=0.6)
-    plt.title("Lost Photons vs Energy (All SPADs)")
+    plt.title(f"Lost Photons{y_suffix} vs Energy (All SPADs)")
     plt.xlabel("Beam Energy (GeV)")
-    plt.ylabel("Lost Photons")
+    plt.ylabel(f"Lost Photons{y_units}")
     plt.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "comparison_lost_all_SPADs.png"))
