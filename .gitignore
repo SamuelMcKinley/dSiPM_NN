@@ -5,4 +5,4 @@ Training_Outputs
 LOGDIR/*
 *.csv
 machinefile*
-*.txt
+*.txtphoton_tracking_plots
