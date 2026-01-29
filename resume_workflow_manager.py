@@ -50,7 +50,7 @@ def wait_for_simulation(group_size):
     s_done_count = len(s_done_files)
 
     time_counter += 1
-    if time_counter % 1200 == 0:
+    if time_counter % 5000 == 0:
       subprocess.run(["python3", "Simulation_Failsafe.py",
         str(group_size), sim_check_dir], check=True)
 
@@ -167,7 +167,7 @@ def Analysis_C(Events_per_energy):
   shutil.move("photon_tracking_plots", "Training_Outputs/")
 
 def main():
-  os.makedirs("Training_Outputs/")
+  os.makedirs("Training_Outputs/", exist_ok = True)
 
   config_file = sys.argv[1]
   with open(config_file, "r") as f:

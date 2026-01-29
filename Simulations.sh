@@ -26,6 +26,10 @@ temp_dir=/lustre/scratch/\$USER/dSiPM_NN
 
 cd \${temp_dir}
 
+export TMPDIR=/lustre/scratch/\$USER/tmp_\${SLURM_JOB_ID}
+mkdir -p "\$TMPDIR"
+trap 'rm -rf "\$TMPDIR"' EXIT
+
 # Loop as long as the master script is running
 echo "Searching for start_Simulations_${i}.txt"
 while squeue -u "\$USER" | grep -q "batch_wo"; do
@@ -56,12 +60,15 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
     ls -l "\${sim_dir}/exampleB4b" || echo "MISSING: \${sim_dir}/exampleB4b"
 
     # Run GEANT4 simulation from directory parallel to dSiPM_NN
-    singularity exec --cleanenv --bind /lustre:/lustre /lustre/work/yofeng/SimulationEnv/alma9forgeant4_sbox/ \
+    singularity exec --cleanenv \
+      --bind /lustre:/lustre \
+      --bind "\$TMPDIR":/tmp \
+      /lustre/work/yofeng/SimulationEnv/alma9forgeant4_sbox/ \
       bash -c "source /workspace/geant4-v11.2.2-install/bin/geant4.sh && \
         \${sim_dir}/exampleB4b -b random_${i}.mac \\
         -jobName Simulation -runNumber 0 -runSeq ${i} \\
         -numberOfEvents 1 -eventsInNtupe 1 \\
-        -gun_particle "\$particle" -gun_energy_min "\$energy" -gun_energy_max "\$energy" \\
+        -gun_particle \"\$particle\" -gun_energy_min \"\$energy\" -gun_energy_max \"\$energy\" \\
         -sipmType 1"
     sim_rc=\$?
 

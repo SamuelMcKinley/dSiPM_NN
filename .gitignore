@@ -1,8 +1,10 @@
 batch_jobs
 NNTraining/*0_model
+NNTraining/*5_model
 Training_Outputs
 *.json
 LOGDIR/*
 *.csv
 machinefile*
-*.txtphoton_tracking_plots
+*.txt
+photon_tracking_plots

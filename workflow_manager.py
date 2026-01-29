@@ -46,7 +46,7 @@ def wait_for_simulation(group_size):
     s_done_count = len(s_done_files)
 
     time_counter += 1
-    if time_counter % 1200 == 0:
+    if time_counter % 5000 == 0:
       subprocess.run(["python3", "Simulation_Failsafe.py",
         str(group_size), sim_check_dir], check=True)
 

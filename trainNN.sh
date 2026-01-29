@@ -14,7 +14,7 @@ gen_script() {
 #SBATCH -e LOGDIR/%x.%j.err
 #SBATCH -p matador
 #SBATCH -c 8
-#SBATCH --mem=16G
+#SBATCH --mem=32G
 #SBATCH --gpus-per-node=1
 
 set -euo pipefail
@@ -51,8 +51,13 @@ while squeue -u "\$USER" | grep -q "batch_wo"; do
     cp -r current_model/* \${SPAD_Size}_model
     cd \${SPAD_Size}_model
 
+    export OMP_NUM_THREADS=1
+    export MKL_NUM_THREADS=1
+    export OPENBLAS_NUM_THREADS=1
+    export TORCH_NUM_THREADS=1
+
     # Train entire group to model. Args: <folder with tensors> --spad <SPAD Size>
-    python3 -u train.py \${temp_dir}/tensfold --epochs 30 --spad \${SPAD_Size} --bs 32 --workers 8 --early-stop 6
+    python3 -u train.py \${temp_dir}/tensfold --epochs 30 --spad \${SPAD_Size} --bs 1 --workers 0 --early-stop 6 --lr 3e-4
 
     # Combine tensors
     cd \${home_dir}

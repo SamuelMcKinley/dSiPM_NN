@@ -123,6 +123,20 @@ def denormalize_targets(y_norm: torch.Tensor, mu: float, sigma: float) -> torch.
     return y_norm * sigma + mu
 
 
+# -------------------- lnN feature helpers --------------------
+
+def compute_feature_norm(train_feat: torch.Tensor) -> Tuple[float, float]:
+    mu = float(train_feat.mean().item())
+    sigma = float(train_feat.std().item())
+    if sigma <= 0:
+        sigma = 1.0
+    return mu, sigma
+
+
+def normalize_feature(x: torch.Tensor, mu: float, sigma: float) -> torch.Tensor:
+    return (x - mu) / sigma
+
+
 # -------------------- main --------------------
 
 def main():
@@ -142,7 +156,7 @@ def main():
             csv.writer(f).writerow([
                 "group","epoch","train_loss","val_loss","val_mae","val_rmse",
                 "val_mean_true","val_mean_pred","num_train","num_val",
-                "mu_logE","sigma_logE","best_val_at_save"
+                "mu_logE","sigma_logE","mu_lnN","sigma_lnN","best_val_at_save"
             ])
 
     if not val_csv.exists():
@@ -204,6 +218,8 @@ def main():
     best_val = float("inf")
     mu_logE = None
     sigma_logE = None
+    mu_lnN = None
+    sigma_lnN = None
 
     resume_path = last_ckpt if last_ckpt.exists() else best_latest_ckpt
     if resume_path.exists():
@@ -217,8 +233,10 @@ def main():
         best_val = float(ckpt.get("best_val", best_val))
         mu_logE = ckpt.get("mu_logE", None)
         sigma_logE = ckpt.get("sigma_logE", None)
-        if mu_logE is None or sigma_logE is None:
-            print("WARNING: checkpoint missing mu/sigma for logE; will recompute once (not ideal).")
+        mu_lnN = ckpt.get("mu_lnN", None)
+        sigma_lnN = ckpt.get("sigma_lnN", None)
+        if mu_logE is None or sigma_logE is None or mu_lnN is None or sigma_lnN is None:
+            print("WARNING: checkpoint missing mu/sigma for logE and/or lnN; will recompute once (not ideal).")
     else:
         print("No prior checkpoint — starting fresh weights.")
 
@@ -232,9 +250,22 @@ def main():
         train_targets_log = torch.cat(train_targets_log_list).float()
         mu_logE, sigma_logE = compute_target_norm(train_targets_log)
 
+    # ---- Compute mu/sigma (lnN) ONLY if missing ----
+    if mu_lnN is None or sigma_lnN is None:
+        train_lnN_list = []
+        with torch.no_grad():
+            for _x, _lnN, _y, _name in DataLoader(train_set, batch_size=512, shuffle=False, num_workers=0):
+                train_lnN_list.append(_lnN.view(-1).float())
+        train_lnN = torch.cat(train_lnN_list).float()
+        mu_lnN, sigma_lnN = compute_feature_norm(train_lnN)
+
     mu_logE = float(mu_logE)
     sigma_logE = float(sigma_logE)
+    mu_lnN = float(mu_lnN)
+    sigma_lnN = float(sigma_lnN)
+
     print(f"[{group}] Target normalization (fixed across resumes): mu_logE={mu_logE:.6f}, sigma_logE={sigma_logE:.6f}")
+    print(f"[{group}] lnN normalization (fixed across resumes): mu_lnN={mu_lnN:.6f}, sigma_lnN={sigma_lnN:.6f}")
     if resume_path.exists():
         print(f"[{group}] Loaded best_val from checkpoint: {best_val:.6f}")
 
@@ -250,6 +281,8 @@ def main():
             x = x.to(dev, non_blocking=use_cuda)
             lnN = lnN.to(dev, non_blocking=use_cuda)
             y = y.to(dev, non_blocking=use_cuda)
+
+            lnN = normalize_feature(lnN.float(), mu_lnN, sigma_lnN)
 
             y_log = safe_log_energy(y)
             y_log_norm = normalize_targets(y_log, mu_logE, sigma_logE)
@@ -282,6 +315,9 @@ def main():
                 lnN = lnN.to(dev, non_blocking=use_cuda)
                 y = y.to(dev, non_blocking=use_cuda)
 
+                lnN_raw = lnN  # for logging
+                lnN = normalize_feature(lnN.float(), mu_lnN, sigma_lnN)
+
                 y_log = safe_log_energy(y)
                 y_log_norm = normalize_targets(y_log, mu_logE, sigma_logE)
 
@@ -289,12 +325,13 @@ def main():
                 val_loss_sum += criterion(out_log_norm, y_log_norm).item()
 
                 out_log = denormalize_targets(out_log_norm, mu_logE, sigma_logE)
+                out_log = torch.clamp(out_log, min=np.log(1e-3), max=np.log(1e4))
                 out_linear = torch.exp(out_log)
 
                 preds_linear.append(out_linear.detach().cpu())
                 trues_linear.append(y.detach().cpu())
 
-                lnN_all.extend(lnN.detach().cpu().float().view(-1).tolist())
+                lnN_all.extend(lnN_raw.detach().cpu().float().view(-1).tolist())
                 names_all.extend(list(names))
 
         preds = torch.cat(preds_linear).float()
@@ -319,6 +356,7 @@ def main():
                 f"{mean_true:.6f}", f"{mean_pred:.6f}",
                 len(train_set), len(val_set),
                 f"{mu_logE:.6f}", f"{sigma_logE:.6f}",
+                f"{mu_lnN:.6f}", f"{sigma_lnN:.6f}",
                 f"{best_val:.6f}"
             ])
 
@@ -344,6 +382,8 @@ def main():
                     "best_val": best_val,
                     "mu_logE": mu_logE,
                     "sigma_logE": sigma_logE,
+                    "mu_lnN": mu_lnN,
+                    "sigma_lnN": sigma_lnN,
                 },
                 best_latest_ckpt
             )
@@ -362,6 +402,8 @@ def main():
                 "best_val": best_val,
                 "mu_logE": mu_logE,
                 "sigma_logE": sigma_logE,
+                "mu_lnN": mu_lnN,
+                "sigma_lnN": sigma_lnN,
             },
             last_ckpt
         )
